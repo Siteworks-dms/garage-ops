@@ -13,6 +13,12 @@ const STATUS_META = {
   "In Progress": { color: "#3B82F6", bg: "rgba(59,130,246,0.12)",  border: "rgba(59,130,246,0.3)"  },
   "Completed":   { color: "#10B981", bg: "rgba(16,185,129,0.12)",  border: "rgba(16,185,129,0.3)"  },
 };
+
+const VEHICLE_COLORS = [
+  "Black","White","Silver","Gray","Red","Blue","Green","Brown","Beige",
+  "Orange","Yellow","Gold","Purple","Maroon","Navy","Champagne","Other",
+];
+
 const MAKES = ["Acura","Audi","BMW","Buick","Cadillac","Chevrolet","Chrysler","Dodge","Ford","Genesis","GMC","Honda","Hyundai","Infiniti","Jeep","Kia","Lexus","Lincoln","Mazda","Mercedes-Benz","Mitsubishi","Nissan","Ram","Subaru","Tesla","Toyota","Volkswagen","Volvo"];
 
 const GLOBAL_CSS = `
@@ -22,7 +28,12 @@ const GLOBAL_CSS = `
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #30363D; border-radius: 3px; }
-  input, select, textarea { background: #0D1117; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #E6EDF3; font-family: 'Rajdhani', sans-serif; font-size: 15px; padding: 8px 12px; width: 100%; outline: none; transition: border-color .15s, box-shadow .15s; }
+  input, select, textarea {
+    background: #0D1117; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+    color: #E6EDF3; font-family: 'Rajdhani', sans-serif; font-size: 15px;
+    padding: 8px 12px; width: 100%; outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  input[type="date"] { color-scheme: dark; }
   input:focus, select:focus, textarea:focus { border-color: #F59E0B; box-shadow: 0 0 0 3px rgba(245,158,11,0.08); }
   select option { background: #1C2333; }
   textarea { resize: none; }
@@ -34,11 +45,23 @@ const GLOBAL_CSS = `
   @keyframes ticker { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
   .slide-in { animation: slideIn .22s ease forwards; }
   .pop-in   { animation: popIn  .18s ease forwards; }
-  @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2,1fr) !important; } .kanban-grid { grid-template-columns: 1fr !important; } .modal-grid { grid-template-columns: 1fr !important; } .mechanic-grid { grid-template-columns: 1fr !important; } .msg-layout { flex-direction: column !important; } .msg-sidebar { width: 100% !important; max-height: 220px !important; } }
-  @media (max-width: 600px) { .stats-grid { grid-template-columns: repeat(2,1fr) !important; } .hide-mobile { display: none !important; } .page-pad { padding: 16px 14px !important; } }
+  @media (max-width: 900px) {
+    .stats-grid { grid-template-columns: repeat(2,1fr) !important; }
+    .kanban-grid { grid-template-columns: 1fr !important; }
+    .modal-grid { grid-template-columns: 1fr !important; }
+    .mechanic-grid { grid-template-columns: 1fr !important; }
+    .msg-layout { flex-direction: column !important; }
+    .msg-sidebar { width: 100% !important; max-height: 220px !important; }
+  }
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: repeat(2,1fr) !important; }
+    .hide-mobile { display: none !important; }
+    .page-pad { padding: 16px 14px !important; }
+  }
 `;
 
 const todayStr = () => new Date().toISOString();
+const todayDate = () => new Date().toISOString().split("T")[0];
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 32 }, (_, i) => currentYear + 1 - i);
 function getInitials(name = "") { return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2); }
@@ -51,9 +74,27 @@ function timeAgo(ts) {
   if (h < 24) return `${h}h ago`;
   return new Date(ts).toLocaleDateString();
 }
+function fmtDate(d) {
+  if (!d) return "—";
+  return new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+// Color dot for vehicle color
+const COLOR_MAP = {
+  Black: "#1a1a1a", White: "#f0f0f0", Silver: "#C0C0C0", Gray: "#808080",
+  Red: "#DC2626", Blue: "#2563EB", Green: "#16A34A", Brown: "#92400E",
+  Beige: "#D4B896", Orange: "#EA580C", Yellow: "#CA8A04", Gold: "#B7960C",
+  Purple: "#7C3AED", Maroon: "#881337", Navy: "#1E3A5F", Champagne: "#C9A96E", Other: "#6E7681",
+};
+function ColorDot({ color, size = 12 }) {
+  if (!color) return null;
+  const hex = COLOR_MAP[color] ?? "#6E7681";
+  const needsBorder = color === "White" || color === "Beige" || color === "Champagne";
+  return <span style={{ display: "inline-block", width: size, height: size, borderRadius: "50%", background: hex, border: needsBorder ? "1px solid rgba(255,255,255,0.2)" : "none", flexShrink: 0, verticalAlign: "middle" }} />;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TV DISPLAY MODE
+// TV DISPLAY
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function TVClock() {
@@ -74,14 +115,14 @@ function TVClock() {
 
 function TVStatusPill({ status }) {
   const meta = {
-    "Pending":     { color: "#F59E0B", bg: "rgba(245,158,11,0.15)", dot: "#F59E0B" },
-    "In Progress": { color: "#3B82F6", bg: "rgba(59,130,246,0.15)", dot: "#3B82F6" },
-    "Completed":   { color: "#10B981", bg: "rgba(16,185,129,0.15)", dot: "#10B981" },
+    "Pending":     { color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
+    "In Progress": { color: "#3B82F6", bg: "rgba(59,130,246,0.15)" },
+    "Completed":   { color: "#10B981", bg: "rgba(16,185,129,0.15)" },
   };
   const m = meta[status] ?? meta["Pending"];
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: m.bg, color: m.color, borderRadius: 20, padding: "4px 12px", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
-      <span style={{ width: 7, height: 7, borderRadius: "50%", background: m.dot, display: "inline-block", ...(status === "In Progress" ? { animation: "pulse 1.5s ease-in-out infinite" } : {}) }} />
+      <span style={{ width: 7, height: 7, borderRadius: "50%", background: m.color, display: "inline-block", ...(status === "In Progress" ? { animation: "pulse 1.5s ease-in-out infinite" } : {}) }} />
       {status}
     </span>
   );
@@ -90,13 +131,12 @@ function TVStatusPill({ status }) {
 function TVMechanicCard({ mechanic, orders }) {
   const palette = ["#3B82F6","#8B5CF6","#10B981","#F59E0B","#EF4444","#EC4899","#06B6D4"];
   const col = palette[(mechanic.full_name.charCodeAt(0) || 0) % palette.length];
-  const active   = orders.filter(o => o.status === "In Progress");
-  const pending  = orders.filter(o => o.status === "Pending");
-  const done     = orders.filter(o => o.status === "Completed");
+  const active  = orders.filter(o => o.status === "In Progress");
+  const pending = orders.filter(o => o.status === "Pending");
+  const done    = orders.filter(o => o.status === "Completed");
 
   return (
     <div style={{ background: "#161B22", border: `1px solid ${col}30`, borderTop: `3px solid ${col}`, borderRadius: 14, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      {/* Mechanic header */}
       <div style={{ padding: "20px 22px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ width: 52, height: 52, borderRadius: "50%", background: col + "22", border: `2px solid ${col}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 700, color: col, flexShrink: 0 }}>
           {getInitials(mechanic.full_name)}
@@ -104,14 +144,8 @@ function TVMechanicCard({ mechanic, orders }) {
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "0.04em" }}>{mechanic.full_name}</div>
           <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
-            {[
-              { label: "Active",   count: active.length,  color: "#3B82F6" },
-              { label: "Pending",  count: pending.length, color: "#F59E0B" },
-              { label: "Done",     count: done.length,    color: "#10B981" },
-            ].map(s => (
-              <span key={s.label} style={{ fontSize: 12, color: s.color, background: s.color + "15", border: `1px solid ${s.color}30`, borderRadius: 10, padding: "2px 10px", fontWeight: 700 }}>
-                {s.count} {s.label}
-              </span>
+            {[{ label: "Active", count: active.length, color: "#3B82F6" }, { label: "Pending", count: pending.length, color: "#F59E0B" }, { label: "Done", count: done.length, color: "#10B981" }].map(s => (
+              <span key={s.label} style={{ fontSize: 12, color: s.color, background: s.color + "15", border: `1px solid ${s.color}30`, borderRadius: 10, padding: "2px 10px", fontWeight: 700 }}>{s.count} {s.label}</span>
             ))}
           </div>
         </div>
@@ -122,31 +156,33 @@ function TVMechanicCard({ mechanic, orders }) {
           </div>
         )}
       </div>
-
-      {/* Orders list */}
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 0" }}>
         {orders.length === 0 ? (
           <div style={{ padding: "24px 22px", textAlign: "center", color: "#484f58", fontSize: 15 }}>No orders assigned</div>
         ) : orders.map(o => (
-          <div key={o.id} style={{
-            padding: "12px 22px", borderBottom: "1px solid rgba(255,255,255,0.04)",
-            display: "flex", alignItems: "center", gap: 14,
-            background: o.status === "In Progress" ? "rgba(59,130,246,0.04)" : "transparent",
-            transition: "background .2s",
-          }}>
-            {/* Status indicator bar */}
+          <div key={o.id} style={{ padding: "12px 22px", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: 14, background: o.status === "In Progress" ? "rgba(59,130,246,0.04)" : "transparent" }}>
             <div style={{ width: 4, alignSelf: "stretch", borderRadius: 2, background: o.status === "Pending" ? "#F59E0B" : o.status === "In Progress" ? "#3B82F6" : "#10B981", flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "#F59E0B", fontWeight: 600 }}>{o.order_number}</span>
-                <span style={{ fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.customer}</span>
+                <span style={{ fontSize: 15, fontWeight: 700 }}>{o.customer}</span>
+                {o.color && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: "#8B949E" }}>
+                    <ColorDot color={o.color} size={10} /> {o.color}
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: 14, color: "#8B949E", marginBottom: 4 }}>{o.year} {o.make} {o.model}</div>
+              {/* Date fields on TV */}
+              {(o.date_received || o.date_assigned) && (
+                <div style={{ display: "flex", gap: 16, marginBottom: 4, flexWrap: "wrap" }}>
+                  {o.date_received && <span style={{ fontSize: 11, color: "#6E7681" }}>📥 Received: {fmtDate(o.date_received)}</span>}
+                  {o.date_assigned && <span style={{ fontSize: 11, color: "#6E7681" }}>🔧 Assigned: {fmtDate(o.date_assigned)}</span>}
+                </div>
+              )}
               <div style={{ fontSize: 13, color: "#C9D1D9", lineHeight: 1.45, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{o.task}</div>
             </div>
-            <div style={{ flexShrink: 0 }}>
-              <TVStatusPill status={o.status} />
-            </div>
+            <div style={{ flexShrink: 0 }}><TVStatusPill status={o.status} /></div>
           </div>
         ))}
       </div>
@@ -155,41 +191,33 @@ function TVMechanicCard({ mechanic, orders }) {
 }
 
 function TVDisplay() {
-  const [mechanics, setMechanics] = useState([]);
-  const [orders,    setOrders]    = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [lastUpdate,setLastUpdate]= useState(new Date());
+  const [mechanics,   setMechanics]   = useState([]);
+  const [orders,      setOrders]      = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [lastUpdate,  setLastUpdate]  = useState(new Date());
 
   const load = async () => {
     const [{ data: mechs }, { data: ords }] = await Promise.all([
       supabase.from("profiles").select("*").eq("role", "mechanic").order("full_name"),
       supabase.from("work_orders").select("*").neq("status", "Completed").order("created_at", { ascending: false }),
     ]);
-    setMechanics(mechs ?? []);
-    setOrders(ords ?? []);
-    setLastUpdate(new Date());
-    setLoading(false);
+    setMechanics(mechs ?? []); setOrders(ords ?? []);
+    setLastUpdate(new Date()); setLoading(false);
   };
 
+  useEffect(() => { load(); const i = setInterval(load, 60000); return () => clearInterval(i); }, []);
   useEffect(() => {
-    load();
-    // Refresh every 60 seconds as fallback
-    const interval = setInterval(load, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Realtime subscription
-  useEffect(() => {
-    const ch = supabase.channel("tv-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "work_orders" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" },    () => load())
+    const ch = supabase.channel("tv-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "work_orders" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, load)
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, []);
 
   const getOrdersForMech = id => orders.filter(o => o.mechanic_id === id);
-  const totalActive = orders.filter(o => o.status === "In Progress").length;
+  const totalActive  = orders.filter(o => o.status === "In Progress").length;
   const totalPending = orders.filter(o => o.status === "Pending").length;
+  const cols = mechanics.length <= 2 ? mechanics.length : mechanics.length <= 4 ? 2 : 3;
 
   if (loading) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0D1117", flexDirection: "column", gap: 20 }}>
@@ -198,72 +226,46 @@ function TVDisplay() {
     </div>
   );
 
-  const cols = mechanics.length <= 2 ? mechanics.length : mechanics.length <= 4 ? 2 : mechanics.length <= 6 ? 3 : 4;
-
   return (
     <div style={{ minHeight: "100vh", background: "#0D1117", display: "flex", flexDirection: "column" }}>
-      {/* Header bar */}
       <div style={{ padding: "16px 28px", background: "#161B22", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        {/* Brand */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, background: "rgba(245,158,11,0.1)", border: "1.5px solid rgba(245,158,11,0.3)", borderRadius: 12 }}>
-            <svg width="26" height="26" viewBox="0 0 34 34" fill="none">
-              <polygon points="17,3 31,10 31,24 17,31 3,24 3,10" stroke="#F59E0B" strokeWidth="1.5" strokeLinejoin="round" fill="none"/>
-              <circle cx="17" cy="17" r="4.5" stroke="#F59E0B" strokeWidth="1.5" fill="rgba(245,158,11,0.1)"/>
-              <line x1="17" y1="12.5" x2="17" y2="8"  stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
-              <line x1="17" y1="21.5" x2="17" y2="26" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
-              <line x1="12.5" y1="17" x2="8"  y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
-              <line x1="21.5" y1="17" x2="26" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
+            <svg width="26" height="26" viewBox="0 0 34 34" fill="none"><polygon points="17,3 31,10 31,24 17,31 3,24 3,10" stroke="#F59E0B" strokeWidth="1.5" strokeLinejoin="round" fill="none"/><circle cx="17" cy="17" r="4.5" stroke="#F59E0B" strokeWidth="1.5" fill="rgba(245,158,11,0.1)"/><line x1="17" y1="12.5" x2="17" y2="8" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="17" y1="21.5" x2="17" y2="26" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="12.5" y1="17" x2="8" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="21.5" y1="17" x2="26" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </div>
           <div>
             <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.08em" }}>GARAGE<span style={{ color: "#F59E0B" }}>OPS</span></div>
             <div style={{ fontSize: 11, color: "#6E7681", letterSpacing: "0.12em" }}>WORKSHOP FLOOR DISPLAY</div>
           </div>
         </div>
-
-        {/* Live stats */}
         <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-          {[
-            { label: "MECHANICS", value: mechanics.length, color: "#E6EDF3" },
-            { label: "IN PROGRESS", value: totalActive, color: "#3B82F6" },
-            { label: "PENDING", value: totalPending, color: "#F59E0B" },
-          ].map(s => (
+          {[{ label: "MECHANICS", value: mechanics.length, color: "#E6EDF3" }, { label: "IN PROGRESS", value: totalActive, color: "#3B82F6" }, { label: "PENDING", value: totalPending, color: "#F59E0B" }].map(s => (
             <div key={s.label} style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "8px 16px", textAlign: "center", minWidth: 80 }}>
               <div style={{ fontSize: 10, color: "#6E7681", letterSpacing: "0.1em", marginBottom: 4 }}>{s.label}</div>
               <div style={{ fontSize: 26, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
             </div>
           ))}
-
-          {/* Live indicator */}
           <div style={{ display: "flex", alignItems: "center", gap: 7, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 20, padding: "6px 14px" }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", display: "inline-block", animation: "pulse 1.5s ease-in-out infinite" }} />
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", animation: "pulse 1.5s ease-in-out infinite" }} />
             <span style={{ fontSize: 12, fontWeight: 700, color: "#10B981", letterSpacing: "0.06em" }}>LIVE</span>
           </div>
         </div>
-
-        {/* Clock */}
         <TVClock />
       </div>
 
-      {/* Mechanic grid */}
       <div style={{ flex: 1, padding: "20px 24px", overflowY: "auto" }}>
         {mechanics.length === 0 ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 16, color: "#484f58" }}>
             <div style={{ fontSize: 56 }}>👷</div>
             <div style={{ fontSize: 22, fontWeight: 600 }}>No mechanics registered yet</div>
-            <div style={{ fontSize: 15 }}>Add mechanics from the Manager Dashboard to see them here</div>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 16, alignItems: "start" }}>
-            {mechanics.map(m => (
-              <TVMechanicCard key={m.id} mechanic={m} orders={getOrdersForMech(m.id)} />
-            ))}
+            {mechanics.map(m => <TVMechanicCard key={m.id} mechanic={m} orders={getOrdersForMech(m.id)} />)}
           </div>
         )}
       </div>
 
-      {/* Footer ticker */}
       <div style={{ height: 36, background: "#161B22", borderTop: "1px solid rgba(255,255,255,0.06)", overflow: "hidden", display: "flex", alignItems: "center", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 16, flexShrink: 0, borderRight: "1px solid rgba(255,255,255,0.08)", paddingRight: 16, height: "100%" }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", animation: "pulse 1.5s ease-in-out infinite" }} />
@@ -271,9 +273,8 @@ function TVDisplay() {
         </div>
         <div style={{ overflow: "hidden", flex: 1, position: "relative", height: "100%", display: "flex", alignItems: "center" }}>
           <div style={{ whiteSpace: "nowrap", animation: "ticker 40s linear infinite", fontSize: 13, color: "#8B949E", letterSpacing: "0.04em" }}>
-            {orders.length === 0
-              ? "  No active work orders at this time  ·  "
-              : orders.map(o => `  ${o.order_number} · ${o.customer} · ${o.year} ${o.make} ${o.model} · ${o.status}  ·`).join("  ")}
+            {orders.length === 0 ? "  No active work orders at this time  ·  "
+              : orders.map(o => `  ${o.order_number} · ${o.customer} · ${o.year} ${o.color ? o.color + " " : ""}${o.make} ${o.model} · ${o.status}  ·`).join("  ")}
           </div>
         </div>
         <div style={{ paddingRight: 16, paddingLeft: 16, fontSize: 11, color: "#484f58", borderLeft: "1px solid rgba(255,255,255,0.08)", height: "100%", display: "flex", alignItems: "center", flexShrink: 0 }}>
@@ -337,29 +338,19 @@ function MessagingPanel({ currentUser, mechanics }) {
   const bottomRef = useRef(null);
   const isManager = currentUser.role === "manager";
 
-  const loadAllMessages = async () => {
-    const { data } = await supabase.from("messages").select("*");
-    setAllMessages(data ?? []);
-  };
+  const loadAllMessages = async () => { const { data } = await supabase.from("messages").select("*"); setAllMessages(data ?? []); };
 
   useEffect(() => { loadAllMessages(); }, []);
 
   const loadConversation = async (mechId) => {
     setLoading(true);
     let query = supabase.from("messages").select("*").order("created_at", { ascending: true });
-    if (isManager) {
-      query = query.or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${mechId}),and(sender_id.eq.${mechId},receiver_id.eq.${currentUser.id})`);
-    } else {
-      query = query.or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`);
-    }
+    if (isManager) query = query.or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${mechId}),and(sender_id.eq.${mechId},receiver_id.eq.${currentUser.id})`);
+    else query = query.or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`);
     const { data } = await query;
-    setMessages(data ?? []);
-    setLoading(false);
+    setMessages(data ?? []); setLoading(false);
     const unreadIds = (data ?? []).filter(m => m.receiver_id === currentUser.id && !m.is_read).map(m => m.id);
-    if (unreadIds.length > 0) {
-      await supabase.from("messages").update({ is_read: true }).in("id", unreadIds);
-      loadAllMessages();
-    }
+    if (unreadIds.length > 0) { await supabase.from("messages").update({ is_read: true }).in("id", unreadIds); loadAllMessages(); }
   };
 
   useEffect(() => {
@@ -369,10 +360,7 @@ function MessagingPanel({ currentUser, mechanics }) {
         const isRelevant = isManager
           ? selectedMech && ((msg.sender_id === currentUser.id && msg.receiver_id === selectedMech.id) || (msg.sender_id === selectedMech.id && msg.receiver_id === currentUser.id))
           : (msg.sender_id === currentUser.id || msg.receiver_id === currentUser.id);
-        if (isRelevant) {
-          setMessages(prev => [...prev, msg]);
-          if (msg.receiver_id === currentUser.id) supabase.from("messages").update({ is_read: true }).eq("id", msg.id);
-        }
+        if (isRelevant) { setMessages(prev => [...prev, msg]); if (msg.receiver_id === currentUser.id) supabase.from("messages").update({ is_read: true }).eq("id", msg.id); }
         loadAllMessages();
       }).subscribe();
     return () => supabase.removeChannel(channel);
@@ -381,7 +369,6 @@ function MessagingPanel({ currentUser, mechanics }) {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   const handleSelectMech = (mech) => { setSelectedMech(mech); setMessages([]); loadConversation(mech.id); };
-
   const handleSend = async () => {
     if (!body.trim() || sending) return;
     if (isManager && !selectedMech) return;
@@ -438,7 +425,7 @@ function MessagingPanel({ currentUser, mechanics }) {
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
               {loading ? (<div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, gap: 10, color: "#8B949E" }}><Spinner /> Loading…</div>)
-                : messages.length === 0 ? (<div style={{ textAlign: "center", color: "#484f58", fontSize: 13, marginTop: 40 }}>No messages yet. Say hello!</div>)
+                : messages.length === 0 ? <div style={{ textAlign: "center", color: "#484f58", fontSize: 13, marginTop: 40 }}>No messages yet. Say hello!</div>
                 : messages.map(msg => {
                   const isMine = msg.sender_id === currentUser.id;
                   return (
@@ -527,11 +514,7 @@ function TopNav({ user, onLogout, unreadCount = 0 }) {
       </div>
       <div style={{ background: user.role === "manager" ? "rgba(245,158,11,0.1)" : "rgba(59,130,246,0.1)", color: user.role === "manager" ? "#F59E0B" : "#3B82F6", border: `1px solid ${user.role === "manager" ? "rgba(245,158,11,0.3)" : "rgba(59,130,246,0.3)"}`, borderRadius: 20, padding: "2px 10px", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em" }}>{user.role.toUpperCase()}</div>
       <div style={{ flex: 1 }} />
-      {user.role === "manager" && (
-        <Btn variant="purple" onClick={openTV} style={{ padding: "6px 14px", fontSize: 12 }}>
-          📺 TV DISPLAY
-        </Btn>
-      )}
+      {user.role === "manager" && <Btn variant="purple" onClick={openTV} style={{ padding: "6px 14px", fontSize: 12 }}>📺 TV DISPLAY</Btn>}
       {unreadCount > 0 && <div style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#EF4444", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}><span>●</span> {unreadCount} unread</div>}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Avatar name={user.full_name} size={30} /><div className="hide-mobile"><div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>{user.full_name}</div></div></div>
       <Btn variant="ghost" onClick={onLogout} style={{ padding: "6px 14px", fontSize: 12 }}>LOG OUT</Btn>
@@ -559,6 +542,190 @@ function StatsCards({ orders }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// ORDER MODAL — CREATE / EDIT (with new fields)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const BLANK_ORDER = {
+  customer: "", make: "Toyota", model: "", year: currentYear,
+  vin: "", color: "", task: "", mechanic_id: "", status: "Pending",
+  date_received: "", date_assigned: "",
+};
+
+function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
+  const [form, setForm] = useState(
+    mode === "edit"
+      ? { ...BLANK_ORDER, ...order, mechanic_id: order.mechanic_id ?? "", color: order.color ?? "", date_received: order.date_received ?? "", date_assigned: order.date_assigned ?? "" }
+      : { ...BLANK_ORDER }
+  );
+  const [errs, setErrs] = useState({});
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const validate = () => {
+    const e = {};
+    if (!form.customer.trim()) e.customer = "Required";
+    if (!form.model.trim())    e.model    = "Required";
+    if (!form.vin.trim())      e.vin      = "Required";
+    else if (form.vin.trim().length !== 17) e.vin = "Must be 17 characters";
+    if (!form.task.trim())     e.task     = "Required";
+    return e;
+  };
+
+  const handleSave = () => {
+    const e = validate();
+    if (Object.keys(e).length) { setErrs(e); return; }
+    onSave({
+      ...form,
+      vin: form.vin.toUpperCase().trim(),
+      year: parseInt(form.year),
+      mechanic_id:   form.mechanic_id   || null,
+      color:         form.color         || null,
+      date_received: form.date_received || null,
+      date_assigned: form.date_assigned || null,
+    });
+  };
+
+  // Shared date input style
+  const dateInputStyle = { fontSize: 14, padding: "8px 12px", width: "100%", cursor: "pointer" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 200, backdropFilter: "blur(3px)" }}>
+      <div className="slide-in" style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, width: "100%", maxWidth: 660, maxHeight: "94vh", overflow: "auto" }}>
+
+        {/* Header */}
+        <div style={{ padding: "20px 26px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "0.05em" }}>{mode === "create" ? "NEW WORK ORDER" : `EDIT ORDER — ${order.order_number}`}</div>
+            <div style={{ fontSize: 12, color: "#8B949E", marginTop: 3 }}>{mode === "create" ? "Fill in all required fields" : "Modify details — all fields editable by manager"}</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#6E7681", fontSize: 24, cursor: "pointer", lineHeight: 1, padding: "2px 6px" }}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "24px 26px" }}>
+
+          {/* ── Section: Customer ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>CUSTOMER</div>
+          <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <FieldLabel required>Customer Name</FieldLabel>
+              <input value={form.customer} onChange={e => set("customer", e.target.value)} placeholder="Full name" />
+              <FieldErr msg={errs.customer} />
+            </div>
+          </div>
+
+          {/* ── Section: Vehicle ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>VEHICLE DETAILS</div>
+          <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
+            <div>
+              <FieldLabel required>Make</FieldLabel>
+              <select value={form.make} onChange={e => set("make", e.target.value)}>
+                {MAKES.map(m => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <FieldLabel required>Model</FieldLabel>
+              <input value={form.model} onChange={e => set("model", e.target.value)} placeholder="e.g. Camry" />
+              <FieldErr msg={errs.model} />
+            </div>
+            <div>
+              <FieldLabel>Year</FieldLabel>
+              <select value={form.year} onChange={e => set("year", e.target.value)}>
+                {years.map(y => <option key={y}>{y}</option>)}
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Color</FieldLabel>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <select value={form.color} onChange={e => set("color", e.target.value)} style={{ flex: 1 }}>
+                  <option value="">— Select color —</option>
+                  {VEHICLE_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                {form.color && <ColorDot color={form.color} size={20} />}
+              </div>
+            </div>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <FieldLabel required>VIN (17 characters)</FieldLabel>
+              <input value={form.vin} onChange={e => set("vin", e.target.value.toUpperCase())} placeholder="1HGCM82633A123456" maxLength={17} className="mono" style={{ fontSize: 13, letterSpacing: "0.06em" }} />
+              <div style={{ fontSize: 11, color: form.vin.length === 17 ? "#10B981" : "#6E7681", marginTop: 4 }}>{form.vin.length}/17 chars</div>
+              <FieldErr msg={errs.vin} />
+            </div>
+          </div>
+
+          {/* ── Section: Dates ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>DATES</div>
+          <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
+            <div>
+              <FieldLabel>Date Vehicle Received in Inventory</FieldLabel>
+              <input type="date" value={form.date_received} onChange={e => set("date_received", e.target.value)} style={dateInputStyle} />
+            </div>
+            <div>
+              <FieldLabel>Date Vehicle Assigned to Mechanic</FieldLabel>
+              <input type="date" value={form.date_assigned} onChange={e => set("date_assigned", e.target.value)} style={dateInputStyle} />
+            </div>
+          </div>
+
+          {/* ── Section: Assignment ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>ASSIGNMENT</div>
+          <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
+            <div>
+              <FieldLabel>Assign Mechanic</FieldLabel>
+              <select value={form.mechanic_id} onChange={e => set("mechanic_id", e.target.value)}>
+                <option value="">— Unassigned —</option>
+                {mechanics.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Status</FieldLabel>
+              <select value={form.status} onChange={e => set("status", e.target.value)}>
+                {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* ── Section: Task ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>TASK</div>
+          <div>
+            <FieldLabel required>Task Description</FieldLabel>
+            <textarea value={form.task} onChange={e => set("task", e.target.value)} placeholder="Describe the work to be performed in detail..." rows={4} style={{ resize: "vertical", minHeight: 80 }} />
+            <FieldErr msg={errs.task} />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "16px 26px", borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <Btn variant="ghost" onClick={onClose} disabled={saving}>CANCEL</Btn>
+          <Btn variant="primary" onClick={handleSave} disabled={saving}>
+            {saving ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Spinner size={14} /> SAVING…</span> : mode === "create" ? "CREATE ORDER" : "SAVE CHANGES"}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DELETE ORDER MODAL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function DeleteOrderModal({ order, onConfirm, onClose, deleting }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 200, backdropFilter: "blur(3px)" }}>
+      <div className="slide-in" style={{ background: "#1C2333", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 16, padding: "32px 32px 28px", width: "100%", maxWidth: 450 }}>
+        <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 9v4M12 17h.01" stroke="#EF4444" strokeWidth="2" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+        </div>
+        <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 10 }}>Delete Work Order</div>
+        <div style={{ color: "#8B949E", fontSize: 14, lineHeight: 1.7, marginBottom: 26 }}>Permanently delete <span className="mono" style={{ color: "#F59E0B", fontSize: 13 }}>{order.order_number}</span> for <strong style={{ color: "#E6EDF3" }}>{order.customer}</strong>.<br />This action <strong style={{ color: "#F87171" }}>cannot be undone</strong>.</div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <Btn variant="ghost" onClick={onClose} disabled={deleting}>CANCEL</Btn>
+          <Btn variant="danger" onClick={onConfirm} disabled={deleting}>{deleting ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Spinner size={14} /> DELETING…</span> : "DELETE ORDER"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // ADD MECHANIC MODAL
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -572,14 +739,12 @@ function AddMechanicModal({ onClose, onCreated }) {
     setSaving(true); setApiErr(""); setSuccess("");
     const { data, error: se } = await authClient.auth.signUp({ email: form.email.trim().toLowerCase(), password: form.password });
     if (se) { setApiErr(se.message); setSaving(false); return; }
-    const newId = data.user?.id;
-    if (!newId) { setApiErr("ID not returned."); setSaving(false); return; }
+    const newId = data.user?.id; if (!newId) { setApiErr("ID not returned."); setSaving(false); return; }
     await authClient.auth.signOut();
     const { error: pe } = await supabase.from("profiles").insert({ id: newId, full_name: form.name.trim(), initials: getInitials(form.name), role: "mechanic" });
     if (pe) { setApiErr(pe.message); setSaving(false); return; }
     setSuccess(`Account created! ${form.name} can log in with ${form.email.trim().toLowerCase()}.`);
-    setSaving(false); onCreated();
-    setTimeout(() => { setSuccess(""); onClose(); }, 3000);
+    setSaving(false); onCreated(); setTimeout(() => { setSuccess(""); onClose(); }, 3000);
   };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 200, backdropFilter: "blur(3px)" }}>
@@ -679,107 +844,79 @@ function MechanicsPanel({ mechanics, orders, onAdd, onDelete, loading }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ORDER MODAL
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
-  const [form, setForm] = useState(mode === "edit" ? { ...order, mechanic_id: order.mechanic_id ?? "" } : { customer: "", make: "Toyota", model: "", year: currentYear, vin: "", task: "", mechanic_id: "", status: "Pending" });
-  const [errs, setErrs] = useState({});
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const validate = () => { const e = {}; if (!form.customer.trim()) e.customer = "Required"; if (!form.model.trim()) e.model = "Required"; if (!form.vin.trim()) e.vin = "Required"; else if (form.vin.trim().length !== 17) e.vin = "Must be 17 characters"; if (!form.task.trim()) e.task = "Required"; return e; };
-  const handleSave = () => { const e = validate(); if (Object.keys(e).length) { setErrs(e); return; } onSave({ ...form, vin: form.vin.toUpperCase().trim(), year: parseInt(form.year), mechanic_id: form.mechanic_id || null }); };
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 200, backdropFilter: "blur(3px)" }}>
-      <div className="slide-in" style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, width: "100%", maxWidth: 620, maxHeight: "92vh", overflow: "auto" }}>
-        <div style={{ padding: "20px 26px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-          <div><div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "0.05em" }}>{mode === "create" ? "NEW WORK ORDER" : `EDIT ORDER — ${order.order_number}`}</div><div style={{ fontSize: 12, color: "#8B949E", marginTop: 3 }}>{mode === "create" ? "Fill in all required fields" : "Modify details"}</div></div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#6E7681", fontSize: 24, cursor: "pointer", lineHeight: 1, padding: "2px 6px" }}>×</button>
-        </div>
-        <div style={{ padding: "24px 26px" }}>
-          <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div style={{ gridColumn: "1 / -1" }}><FieldLabel required>Customer Name</FieldLabel><input value={form.customer} onChange={e => set("customer", e.target.value)} placeholder="Full name" /><FieldErr msg={errs.customer} /></div>
-            <div><FieldLabel required>Make</FieldLabel><select value={form.make} onChange={e => set("make", e.target.value)}>{MAKES.map(m => <option key={m}>{m}</option>)}</select></div>
-            <div><FieldLabel required>Model</FieldLabel><input value={form.model} onChange={e => set("model", e.target.value)} placeholder="e.g. Camry" /><FieldErr msg={errs.model} /></div>
-            <div><FieldLabel>Year</FieldLabel><select value={form.year} onChange={e => set("year", e.target.value)}>{years.map(y => <option key={y}>{y}</option>)}</select></div>
-            <div><FieldLabel required>VIN (17 chars)</FieldLabel><input value={form.vin} onChange={e => set("vin", e.target.value.toUpperCase())} placeholder="1HGCM82633A123456" maxLength={17} className="mono" style={{ fontSize: 13, letterSpacing: "0.06em" }} /><div style={{ fontSize: 11, color: form.vin.length === 17 ? "#10B981" : "#6E7681", marginTop: 4 }}>{form.vin.length}/17</div><FieldErr msg={errs.vin} /></div>
-            <div><FieldLabel>Assign Mechanic</FieldLabel><select value={form.mechanic_id} onChange={e => set("mechanic_id", e.target.value)}><option value="">— Unassigned —</option>{mechanics.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
-            <div><FieldLabel>Status</FieldLabel><select value={form.status} onChange={e => set("status", e.target.value)}>{STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}</select></div>
-            <div style={{ gridColumn: "1 / -1" }}><FieldLabel required>Task Description</FieldLabel><textarea value={form.task} onChange={e => set("task", e.target.value)} placeholder="Describe the work..." rows={4} style={{ resize: "vertical", minHeight: 80 }} /><FieldErr msg={errs.task} /></div>
-          </div>
-        </div>
-        <div style={{ padding: "16px 26px", borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <Btn variant="ghost" onClick={onClose} disabled={saving}>CANCEL</Btn>
-          <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Spinner size={14} /> SAVING…</span> : mode === "create" ? "CREATE ORDER" : "SAVE CHANGES"}</Btn>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// DELETE ORDER MODAL
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function DeleteOrderModal({ order, onConfirm, onClose, deleting }) {
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 200, backdropFilter: "blur(3px)" }}>
-      <div className="slide-in" style={{ background: "#1C2333", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 16, padding: "32px 32px 28px", width: "100%", maxWidth: 450 }}>
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 9v4M12 17h.01" stroke="#EF4444" strokeWidth="2" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
-        </div>
-        <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 10 }}>Delete Work Order</div>
-        <div style={{ color: "#8B949E", fontSize: 14, lineHeight: 1.7, marginBottom: 26 }}>Permanently delete <span className="mono" style={{ color: "#F59E0B", fontSize: 13 }}>{order.order_number}</span> for <strong style={{ color: "#E6EDF3" }}>{order.customer}</strong>.<br />This action <strong style={{ color: "#F87171" }}>cannot be undone</strong>.</div>
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <Btn variant="ghost" onClick={onClose} disabled={deleting}>CANCEL</Btn>
-          <Btn variant="danger" onClick={onConfirm} disabled={deleting}>{deleting ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Spinner size={14} /> DELETING…</span> : "DELETE ORDER"}</Btn>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// WORK ORDERS TABLE
+// WORK ORDERS TABLE (with new columns)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function WorkOrderTable({ orders, mechanics, onEdit, onDelete, onCreate, loading }) {
   const [search, setSearch] = useState(""); const [filterStatus, setFilterStatus] = useState("All"); const [sortField, setSortField] = useState("created_at"); const [sortDir, setSortDir] = useState("desc");
   const toggleSort = field => { if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortField(field); setSortDir("asc"); } };
   const mechName = id => mechanics.find(m => m.id === id)?.full_name ?? "Unassigned";
-  const filtered = orders.filter(o => { const q = search.toLowerCase(); const mq = !q || [o.order_number, o.customer, o.make, o.model, o.vin].some(v => (v ?? "").toLowerCase().includes(q)); return mq && (filterStatus === "All" || o.status === filterStatus); }).sort((a, b) => { let va = a[sortField] ?? "", vb = b[sortField] ?? ""; if (typeof va === "string") va = va.toLowerCase(); if (typeof vb === "string") vb = vb.toLowerCase(); return sortDir === "asc" ? (va < vb ? -1 : va > vb ? 1 : 0) : (va > vb ? -1 : va < vb ? 1 : 0); });
-  const TH = ({ label, field }) => (<th onClick={field ? () => toggleSort(field) : undefined} style={{ padding: "12px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#6E7681", letterSpacing: "0.1em", whiteSpace: "nowrap", cursor: field ? "pointer" : "default", userSelect: "none" }} onMouseEnter={e => { if (field) e.currentTarget.style.color = "#8B949E"; }} onMouseLeave={e => { if (field) e.currentTarget.style.color = "#6E7681"; }}>{label}{field && <span style={{ marginLeft: 4, color: sortField === field ? "#F59E0B" : "#404953" }}>{sortField === field ? (sortDir === "asc" ? "↑" : "↓") : "↕"}</span>}</th>);
+  const filtered = orders
+    .filter(o => { const q = search.toLowerCase(); const mq = !q || [o.order_number, o.customer, o.make, o.model, o.vin, o.color].some(v => (v ?? "").toLowerCase().includes(q)); return mq && (filterStatus === "All" || o.status === filterStatus); })
+    .sort((a, b) => { let va = a[sortField] ?? "", vb = b[sortField] ?? ""; if (typeof va === "string") va = va.toLowerCase(); if (typeof vb === "string") vb = vb.toLowerCase(); return sortDir === "asc" ? (va < vb ? -1 : va > vb ? 1 : 0) : (va > vb ? -1 : va < vb ? 1 : 0); });
+  const TH = ({ label, field }) => (<th onClick={field ? () => toggleSort(field) : undefined} style={{ padding: "11px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#6E7681", letterSpacing: "0.1em", whiteSpace: "nowrap", cursor: field ? "pointer" : "default", userSelect: "none" }} onMouseEnter={e => { if (field) e.currentTarget.style.color = "#8B949E"; }} onMouseLeave={e => { if (field) e.currentTarget.style.color = "#6E7681"; }}>{label}{field && <span style={{ marginLeft: 4, color: sortField === field ? "#F59E0B" : "#404953" }}>{sortField === field ? (sortDir === "asc" ? "↑" : "↓") : "↕"}</span>}</th>);
+
   return (
     <div>
       <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search orders, customers, VIN…" style={{ flex: 1, minWidth: 180 }} />
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search orders, customers, color, VIN…" style={{ flex: 1, minWidth: 180 }} />
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ width: 148 }}><option>All</option>{STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}</select>
         <Btn variant="primary" onClick={onCreate} style={{ padding: "9px 20px" }}>+ NEW ORDER</Btn>
       </div>
       <div style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}>
         {loading ? (<div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 60, gap: 12, color: "#8B949E" }}><Spinner /> Loading orders…</div>) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
-              <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><TH label="ORDER #" field="order_number" /><TH label="CUSTOMER" field="customer" /><TH label="VEHICLE" /><TH label="MECHANIC" /><TH label="TASK" /><TH label="STATUS" field="status" /><TH label="DATE" field="created_at" /><TH label="ACTIONS" /></tr></thead>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1000 }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                  <TH label="ORDER #"    field="order_number" />
+                  <TH label="CUSTOMER"   field="customer" />
+                  <TH label="VEHICLE" />
+                  <TH label="COLOR" />
+                  <TH label="RECEIVED"   field="date_received" />
+                  <TH label="ASSIGNED"   field="date_assigned" />
+                  <TH label="MECHANIC" />
+                  <TH label="STATUS"     field="status" />
+                  <TH label="ACTIONS" />
+                </tr>
+              </thead>
               <tbody>
-                {filtered.length === 0 ? (<tr><td colSpan={8} style={{ padding: "48px 24px", textAlign: "center", color: "#6E7681" }}><div style={{ fontSize: 28, marginBottom: 10 }}>🔍</div><div>No work orders match</div></td></tr>) :
-                  filtered.map((o, i) => (
-                    <tr key={o.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", transition: "background .1s" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.018)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                      <td style={{ padding: "14px 16px" }}><span className="mono" style={{ fontSize: 13, color: "#F59E0B", fontWeight: 600 }}>{o.order_number}</span></td>
-                      <td style={{ padding: "14px 16px" }}><div style={{ fontWeight: 600, fontSize: 14 }}>{o.customer}</div></td>
-                      <td style={{ padding: "14px 16px" }}><div style={{ fontSize: 14, fontWeight: 600 }}>{o.year} {o.make} {o.model}</div><div className="mono" style={{ fontSize: 11, color: "#6E7681", marginTop: 2 }}>{o.vin}</div></td>
-                      <td style={{ padding: "14px 16px" }}><div style={{ fontSize: 13, color: "#8B949E" }}>{mechName(o.mechanic_id)}</div></td>
-                      <td style={{ padding: "14px 16px", maxWidth: 240 }}><div style={{ fontSize: 13, color: "#C9D1D9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 230 }} title={o.task}>{o.task}</div></td>
-                      <td style={{ padding: "14px 16px" }}><StatusBadge status={o.status} /></td>
-                      <td style={{ padding: "14px 16px" }}><span className="mono" style={{ fontSize: 12, color: "#6E7681" }}>{o.created_at ? new Date(o.created_at).toLocaleDateString() : "—"}</span></td>
-                      <td style={{ padding: "14px 16px" }}><div style={{ display: "flex", gap: 6 }}><Btn variant="blue" onClick={() => onEdit(o)} style={{ padding: "5px 12px", fontSize: 11 }}>EDIT</Btn><Btn variant="red" onClick={() => onDelete(o)} style={{ padding: "5px 12px", fontSize: 11 }}>DEL</Btn></div></td>
-                    </tr>
-                  ))}
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={9} style={{ padding: "48px 24px", textAlign: "center", color: "#6E7681" }}><div style={{ fontSize: 28, marginBottom: 10 }}>🔍</div><div>No work orders match</div></td></tr>
+                ) : filtered.map((o, i) => (
+                  <tr key={o.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", transition: "background .1s" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.018)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <td style={{ padding: "13px 14px" }}><span className="mono" style={{ fontSize: 13, color: "#F59E0B", fontWeight: 600 }}>{o.order_number}</span></td>
+                    <td style={{ padding: "13px 14px" }}><div style={{ fontWeight: 600, fontSize: 14 }}>{o.customer}</div></td>
+                    <td style={{ padding: "13px 14px" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{o.year} {o.make} {o.model}</div>
+                      <div className="mono" style={{ fontSize: 11, color: "#6E7681", marginTop: 2 }}>{o.vin}</div>
+                    </td>
+                    <td style={{ padding: "13px 14px" }}>
+                      {o.color ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                          <ColorDot color={o.color} size={12} />
+                          <span style={{ fontSize: 13, color: "#C9D1D9" }}>{o.color}</span>
+                        </div>
+                      ) : <span style={{ color: "#484f58", fontSize: 12 }}>—</span>}
+                    </td>
+                    <td style={{ padding: "13px 14px" }}><span className="mono" style={{ fontSize: 12, color: "#8B949E" }}>{fmtDate(o.date_received)}</span></td>
+                    <td style={{ padding: "13px 14px" }}><span className="mono" style={{ fontSize: 12, color: "#8B949E" }}>{fmtDate(o.date_assigned)}</span></td>
+                    <td style={{ padding: "13px 14px" }}><div style={{ fontSize: 13, color: "#8B949E" }}>{mechName(o.mechanic_id)}</div></td>
+                    <td style={{ padding: "13px 14px" }}><StatusBadge status={o.status} /></td>
+                    <td style={{ padding: "13px 14px" }}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <Btn variant="blue" onClick={() => onEdit(o)}   style={{ padding: "5px 12px", fontSize: 11 }}>EDIT</Btn>
+                        <Btn variant="red"  onClick={() => onDelete(o)} style={{ padding: "5px 12px", fontSize: 11 }}>DEL</Btn>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         )}
       </div>
-      <div style={{ fontSize: 12, color: "#555d65", marginTop: 10 }}>{filtered.length} of {orders.length} orders</div>
+      <div style={{ fontSize: 12, color: "#555d65", marginTop: 10 }}>{filtered.length} of {orders.length} orders · Click column header to sort</div>
     </div>
   );
 }
@@ -806,13 +943,18 @@ function ManagerDashboard({ user, onLogout }) {
 
   const handleSave = async (form) => {
     setSaving(true); setDbError("");
-    if (modal === "create") { const { error } = await supabase.from("work_orders").insert({ customer: form.customer, make: form.make, model: form.model, year: form.year, vin: form.vin, task: form.task, status: form.status, mechanic_id: form.mechanic_id || null, created_by: user.id }); if (error) { setDbError(error.message); setSaving(false); return; } }
-    else { const { error } = await supabase.from("work_orders").update({ customer: form.customer, make: form.make, model: form.model, year: form.year, vin: form.vin, task: form.task, status: form.status, mechanic_id: form.mechanic_id || null, updated_at: todayStr() }).eq("id", form.id); if (error) { setDbError(error.message); setSaving(false); return; } }
+    const payload = { customer: form.customer, make: form.make, model: form.model, year: form.year, vin: form.vin, task: form.task, status: form.status, mechanic_id: form.mechanic_id || null, color: form.color || null, date_received: form.date_received || null, date_assigned: form.date_assigned || null };
+    if (modal === "create") {
+      const { error } = await supabase.from("work_orders").insert({ ...payload, created_by: user.id });
+      if (error) { setDbError(error.message); setSaving(false); return; }
+    } else {
+      const { error } = await supabase.from("work_orders").update({ ...payload, updated_at: todayStr() }).eq("id", form.id);
+      if (error) { setDbError(error.message); setSaving(false); return; }
+    }
     await loadOrders(); closeOrder();
   };
 
   const handleDeleteOrder = async () => { setDeleting(true); setDbError(""); const { error } = await supabase.from("work_orders").delete().eq("id", selected.id); if (error) { setDbError(error.message); setDeleting(false); return; } await loadOrders(); closeOrder(); };
-
   const handleDeleteMechanic = async () => {
     setDeletingMech(true); setDbError("");
     await supabase.from("work_orders").update({ mechanic_id: null, updated_at: todayStr() }).eq("mechanic_id", selectedMech.id);
@@ -883,10 +1025,10 @@ function MechanicDashboard({ user, onLogout }) {
         {activeTab === "orders" && (
           <>
             <div style={{ background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#6E7681", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 14 }}>ℹ️</span><span><strong style={{ color: "#8B949E" }}>Mechanic view: </strong>Task descriptions are read-only. You can only change the <strong style={{ color: "#3B82F6" }}>status</strong> of your orders.</span>
+              <span style={{ fontSize: 14 }}>ℹ️</span><span><strong style={{ color: "#8B949E" }}>Mechanic view: </strong>Read-only. You can only change the <strong style={{ color: "#3B82F6" }}>status</strong> of your orders.</span>
             </div>
             {loading ? (<div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 80, gap: 12, color: "#8B949E" }}><Spinner /> Loading…</div>)
-              : orders.length === 0 ? (<div style={{ textAlign: "center", padding: "80px 24px", background: "#1C2333", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, color: "#6E7681" }}><div style={{ fontSize: 44, marginBottom: 14 }}>🔧</div><div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No Orders Assigned</div><div style={{ fontSize: 14 }}>Your manager hasn't assigned any work orders yet.</div></div>)
+              : orders.length === 0 ? (<div style={{ textAlign: "center", padding: "80px 24px", background: "#1C2333", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, color: "#6E7681" }}><div style={{ fontSize: 44, marginBottom: 14 }}>🔧</div><div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No Orders Assigned</div></div>)
               : (
                 <div className="kanban-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }}>
                   {Object.entries(cols).map(([label, col]) => (
@@ -901,12 +1043,25 @@ function MechanicDashboard({ user, onLogout }) {
                           const m = STATUS_META[o.status] ?? STATUS_META["Pending"];
                           return (
                             <div key={o.id} className="slide-in" style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.06)", borderLeft: `3px solid ${m.color}`, borderRadius: 10, padding: 16, marginBottom: 10, transition: "transform .15s, box-shadow .15s" }} onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 24px rgba(0,0,0,0.35)"; }} onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}><span className="mono" style={{ fontSize: 12, color: "#F59E0B", fontWeight: 600 }}>{o.order_number}</span><StatusBadge status={o.status} /></div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                                <span className="mono" style={{ fontSize: 12, color: "#F59E0B", fontWeight: 600 }}>{o.order_number}</span>
+                                <StatusBadge status={o.status} />
+                              </div>
                               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{o.customer}</div>
-                              <div style={{ fontSize: 13, color: "#8B949E", marginBottom: 12 }}>{o.year} {o.make} {o.model}</div>
+                              {/* Vehicle + color */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#8B949E", marginBottom: 8 }}>
+                                <span>{o.year} {o.make} {o.model}</span>
+                                {o.color && <><ColorDot color={o.color} size={10} /><span>{o.color}</span></>}
+                              </div>
+                              {/* Date fields */}
+                              {(o.date_received || o.date_assigned) && (
+                                <div style={{ display: "flex", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+                                  {o.date_received && <span style={{ fontSize: 11, color: "#6E7681" }}>📥 {fmtDate(o.date_received)}</span>}
+                                  {o.date_assigned && <span style={{ fontSize: 11, color: "#6E7681" }}>🔧 {fmtDate(o.date_assigned)}</span>}
+                                </div>
+                              )}
                               <div style={{ fontSize: 13, color: "#C9D1D9", lineHeight: 1.55, borderLeft: "2px solid rgba(245,158,11,0.25)", padding: "8px 10px", marginBottom: 16, background: "rgba(255,255,255,0.02)", borderRadius: "0 6px 6px 0" }}>{o.task}</div>
                               <div><div style={{ fontSize: 10, fontWeight: 700, color: "#6E7681", letterSpacing: "0.1em", marginBottom: 6 }}>UPDATE STATUS</div><select value={o.status} onChange={e => handleStatus(o.id, e.target.value)} style={{ fontSize: 13 }}>{STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}</select></div>
-                              <div style={{ marginTop: 10, fontSize: 11, color: "#555d65" }}>Created {o.created_at ? new Date(o.created_at).toLocaleDateString() : "—"}</div>
                             </div>
                           );
                         })}
@@ -930,21 +1085,19 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // Inject global CSS
   useEffect(() => { const el = document.createElement("style"); el.textContent = GLOBAL_CSS; document.head.appendChild(el); return () => document.head.removeChild(el); }, []);
 
-  // Check for TV mode via URL param
   const isTVMode = new URLSearchParams(window.location.search).get("tv") === "1";
   if (isTVMode) return <TVDisplay />;
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) { const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single(); if (profile) setUser({ ...session.user, ...profile }); }
+      if (session?.user) { const { data: p } = await supabase.from("profiles").select("*").eq("id", session.user.id).single(); if (p) setUser({ ...session.user, ...p }); }
       setCheckingAuth(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_OUT") { setUser(null); return; }
-      if (session?.user) { const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single(); if (profile) setUser({ ...session.user, ...profile }); }
+      if (session?.user) { const { data: p } = await supabase.from("profiles").select("*").eq("id", session.user.id).single(); if (p) setUser({ ...session.user, ...p }); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -953,7 +1106,10 @@ export default function App() {
 
   if (checkingAuth) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0D1117" }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}><div style={{ width: 36, height: 36, border: "3px solid rgba(245,158,11,0.2)", borderTop: "3px solid #F59E0B", borderRadius: "50%", animation: "spin .7s linear infinite" }} /><div style={{ color: "#6E7681", fontSize: 14, letterSpacing: "0.06em" }}>LOADING…</div></div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        <div style={{ width: 36, height: 36, border: "3px solid rgba(245,158,11,0.2)", borderTop: "3px solid #F59E0B", borderRadius: "50%", animation: "spin .7s linear infinite" }} />
+        <div style={{ color: "#6E7681", fontSize: 14, letterSpacing: "0.06em" }}>LOADING…</div>
+      </div>
     </div>
   );
 

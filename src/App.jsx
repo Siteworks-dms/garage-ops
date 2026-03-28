@@ -602,10 +602,17 @@ function ManagerDashboard({user,onLogout}){
 
   const handleSave=async(form)=>{
     setSaving(true);setErr("");
-    const pl={customer:form.customer,make:form.make,model:form.model,year:form.year,vin:form.vin,task:form.task,status:form.status,mechanic_id:form.mechanic_id||null,color:form.color||null,date_received:form.date_received||null,date_assigned:form.date_assigned||null};
-    if(modal==="create"){const{error}=await supabase.from("work_orders").insert({...pl,created_by:user.id});if(error){setErr(error.message);setSaving(false);return;}}
-    else{const{error}=await supabase.from("work_orders").update({...pl,updated_at:todayStr()}).eq("id",form.id);if(error){setErr(error.message);setSaving(false);return;}}
-    await loadOrders();closeOrder();
+    try{
+      const pl={customer:form.customer,make:form.make,model:form.model,year:form.year,vin:form.vin,task:form.task,status:form.status,mechanic_id:form.mechanic_id||null,color:form.color||null,date_received:form.date_received||null,date_assigned:form.date_assigned||null};
+      if(modal==="create"){
+        const{error}=await supabase.from("work_orders").insert({...pl,created_by:user.id});
+        if(error){setErr(error.message);setSaving(false);return;}
+      }else{
+        const{error}=await supabase.from("work_orders").update({...pl,updated_at:todayStr()}).eq("id",form.id);
+        if(error){setErr(error.message);setSaving(false);return;}
+      }
+      await loadOrders();closeOrder();
+    }catch(e){setErr(e?.message??"Unexpected error saving. Please try again.");setSaving(false);}
   };
 
   const handleDelOrder=async()=>{setDeleting(true);setErr("");const{error}=await supabase.from("work_orders").delete().eq("id",sel.id);if(error){setErr(error.message);setDeleting(false);return;}await loadOrders();closeOrder();};
@@ -760,7 +767,7 @@ export default function App(){
     });
     return()=>subscription.unsubscribe();
   },[]);
-  const logout=async()=>{await supabase.auth.signOut();setUser(null);};
+  const logout=async()=>{await supabase.auth.signOut();setUser(null);window.location.href=window.location.origin;};
   if(checking)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0D1117"}}><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16}}><div style={{width:36,height:36,border:"3px solid rgba(245,158,11,0.2)",borderTop:"3px solid #F59E0B",borderRadius:"50%",animation:"spin .7s linear infinite"}}/><div style={{color:"#6E7681",fontSize:14}}>LOADING…</div></div></div>;
   if(!user)return<LoginScreen onLogin={setUser}/>;
   if(user.role==="manager")return<ManagerDashboard user={user} onLogout={logout}/>;

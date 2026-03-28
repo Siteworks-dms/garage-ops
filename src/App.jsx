@@ -83,7 +83,6 @@ function fmtDate(d) {
   return new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-// Auto-calculates days from date_received to today
 function daysOnLot(dateReceived) {
   if (!dateReceived) return null;
   const received = new Date(dateReceived + "T00:00:00");
@@ -93,7 +92,6 @@ function daysOnLot(dateReceived) {
   return diff < 0 ? 0 : diff;
 }
 
-// Color coding: green < 14d, amber 14-29d, red 30+d
 function lotColor(days) {
   if (days === null) return "#6E7681";
   if (days >= 30) return "#EF4444";
@@ -108,13 +106,13 @@ function lotLabel(days) {
   return "Recent";
 }
 
-// Vehicle color dot
 const COLOR_MAP = {
   Black: "#1a1a1a", White: "#f0f0f0", Silver: "#C0C0C0", Gray: "#808080",
   Red: "#DC2626", Blue: "#2563EB", Green: "#16A34A", Brown: "#92400E",
   Beige: "#D4B896", Orange: "#EA580C", Yellow: "#CA8A04", Gold: "#B7960C",
   Purple: "#7C3AED", Maroon: "#881337", Navy: "#1E3A5F", Champagne: "#C9A96E", Other: "#6E7681",
 };
+
 function ColorDot({ color, size = 12 }) {
   if (!color) return null;
   const hex = COLOR_MAP[color] ?? "#6E7681";
@@ -122,8 +120,7 @@ function ColorDot({ color, size = 12 }) {
   return <span style={{ display: "inline-block", width: size, height: size, borderRadius: "50%", background: hex, border: needsBorder ? "1px solid rgba(255,255,255,0.2)" : "none", flexShrink: 0, verticalAlign: "middle" }} />;
 }
 
-// Compact Days on Lot badge used in table + cards
-function LotBadge({ dateReceived, showLabel = false }) {
+function LotBadge({ dateReceived }) {
   const d = daysOnLot(dateReceived);
   if (d === null) return <span style={{ color: "#484f58", fontSize: 12 }}>—</span>;
   const col = lotColor(d);
@@ -132,7 +129,6 @@ function LotBadge({ dateReceived, showLabel = false }) {
       <span style={{ fontSize: 15, fontWeight: 700, color: col, lineHeight: 1 }}>{d}</span>
       <span style={{ fontSize: 11, color: "#555d65" }}>days</span>
       {d >= 30 && <span style={{ fontSize: 11, color: "#EF4444" }}>⚠</span>}
-      {showLabel && d >= 14 && <span style={{ fontSize: 11, color: col }}>· {lotLabel(d)}</span>}
     </div>
   );
 }
@@ -218,11 +214,7 @@ function TVMechanicCard({ mechanic, orders }) {
                 <div style={{ display: "flex", gap: 14, marginBottom: 4, flexWrap: "wrap", alignItems: "center" }}>
                   {o.date_received && <span style={{ fontSize: 11, color: "#6E7681" }}>📥 {fmtDate(o.date_received)}</span>}
                   {o.date_assigned && <span style={{ fontSize: 11, color: "#6E7681" }}>🔧 {fmtDate(o.date_assigned)}</span>}
-                  {days !== null && (
-                    <span style={{ fontSize: 12, fontWeight: 700, color: lotColor(days) }}>
-                      {days}d on lot {days >= 30 ? "⚠" : ""}
-                    </span>
-                  )}
+                  {days !== null && <span style={{ fontSize: 12, fontWeight: 700, color: lotColor(days) }}>{days}d on lot {days >= 30 ? "⚠" : ""}</span>}
                 </div>
                 <div style={{ fontSize: 13, color: "#C9D1D9", lineHeight: 1.45, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{o.task}</div>
               </div>
@@ -274,7 +266,6 @@ function TVDisplay() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0D1117", display: "flex", flexDirection: "column" }}>
-      {/* Header */}
       <div style={{ padding: "16px 28px", background: "#161B22", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, background: "rgba(245,158,11,0.1)", border: "1.5px solid rgba(245,158,11,0.3)", borderRadius: 12 }}>
@@ -304,8 +295,6 @@ function TVDisplay() {
         </div>
         <TVClock />
       </div>
-
-      {/* Grid */}
       <div style={{ flex: 1, padding: "20px 24px", overflowY: "auto" }}>
         {mechanics.length === 0 ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 16, color: "#484f58" }}>
@@ -318,8 +307,6 @@ function TVDisplay() {
           </div>
         )}
       </div>
-
-      {/* Ticker */}
       <div style={{ height: 36, background: "#161B22", borderTop: "1px solid rgba(255,255,255,0.06)", overflow: "hidden", display: "flex", alignItems: "center", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 16, flexShrink: 0, borderRight: "1px solid rgba(255,255,255,0.08)", paddingRight: 16, height: "100%" }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", animation: "pulse 1.5s ease-in-out infinite" }} />
@@ -486,7 +473,7 @@ function MessagingPanel({ currentUser, mechanics }) {
                   const isMine = msg.sender_id === currentUser.id;
                   return (
                     <div key={msg.id} className="pop-in" style={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start" }}>
-                      <div style={{ maxWidth: "72%", padding: "10px 14px", borderRadius: isMine ? "14px 14px 4px 14px" : "14px 14px 14px 4px", background: isMine ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.06)", border: isMine ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.08)", fontSize: 14, lineHeight: 1.55, color: "#E6EDF3", wordBreak: "break-word" }}>{msg.body}</div>
+                      <div style={{ maxWidth: "72%", padding: "10px 14px", borderRadius: isMine ? "14px 14px 4px 14px" : "14px 14px 14px 4px", background: isMine ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.06)", border: isMine ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.08)", fontSize: 14, lineHeight: 1.6, color: "#E6EDF3", wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{msg.body}</div>
                       <div style={{ fontSize: 11, color: "#555d65", marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
                         {timeAgo(msg.created_at)}
                         {isMine && <span style={{ color: msg.is_read ? "#10B981" : "#555d65" }}>{msg.is_read ? "✓✓" : "✓"}</span>}
@@ -658,8 +645,6 @@ function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 200, backdropFilter: "blur(3px)" }}>
       <div className="slide-in" style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, width: "100%", maxWidth: 660, maxHeight: "94vh", overflow: "auto" }}>
-
-        {/* Header */}
         <div style={{ padding: "20px 26px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "0.05em" }}>{mode === "create" ? "NEW WORK ORDER" : `EDIT ORDER — ${order.order_number}`}</div>
@@ -667,7 +652,6 @@ function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#6E7681", fontSize: 24, cursor: "pointer", lineHeight: 1, padding: "2px 6px" }}>×</button>
         </div>
-
         <div style={{ padding: "24px 26px" }}>
 
           {/* CUSTOMER */}
@@ -681,23 +665,9 @@ function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
           {/* VEHICLE */}
           <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>VEHICLE DETAILS</div>
           <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
-            <div>
-              <FieldLabel required>Make</FieldLabel>
-              <select value={form.make} onChange={e => set("make", e.target.value)}>
-                {MAKES.map(m => <option key={m}>{m}</option>)}
-              </select>
-            </div>
-            <div>
-              <FieldLabel required>Model</FieldLabel>
-              <input value={form.model} onChange={e => set("model", e.target.value)} placeholder="e.g. Camry" />
-              <FieldErr msg={errs.model} />
-            </div>
-            <div>
-              <FieldLabel>Year</FieldLabel>
-              <select value={form.year} onChange={e => set("year", e.target.value)}>
-                {years.map(y => <option key={y}>{y}</option>)}
-              </select>
-            </div>
+            <div><FieldLabel required>Make</FieldLabel><select value={form.make} onChange={e => set("make", e.target.value)}>{MAKES.map(m => <option key={m}>{m}</option>)}</select></div>
+            <div><FieldLabel required>Model</FieldLabel><input value={form.model} onChange={e => set("model", e.target.value)} placeholder="e.g. Camry" /><FieldErr msg={errs.model} /></div>
+            <div><FieldLabel>Year</FieldLabel><select value={form.year} onChange={e => set("year", e.target.value)}>{years.map(y => <option key={y}>{y}</option>)}</select></div>
             <div>
               <FieldLabel>Color</FieldLabel>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -719,36 +689,19 @@ function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
           {/* DATES */}
           <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>DATES</div>
           <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
-            <div>
-              <FieldLabel>Date Vehicle Received in Inventory</FieldLabel>
-              <input type="date" value={form.date_received} onChange={e => set("date_received", e.target.value)} style={{ fontSize: 14 }} />
-            </div>
-            <div>
-              <FieldLabel>Date Vehicle Assigned to Mechanic</FieldLabel>
-              <input type="date" value={form.date_assigned} onChange={e => set("date_assigned", e.target.value)} style={{ fontSize: 14 }} />
-            </div>
+            <div><FieldLabel>Date Vehicle Received in Inventory</FieldLabel><input type="date" value={form.date_received} onChange={e => set("date_received", e.target.value)} style={{ fontSize: 14 }} /></div>
+            <div><FieldLabel>Date Vehicle Assigned to Mechanic</FieldLabel><input type="date" value={form.date_assigned} onChange={e => set("date_assigned", e.target.value)} style={{ fontSize: 14 }} /></div>
           </div>
 
-          {/* DAYS ON LOT — auto calculated */}
+          {/* DAYS ON LOT */}
           {form.date_received && (
             <div style={{ marginBottom: 22 }}>
               <FieldLabel>Days on Lot</FieldLabel>
-              <div style={{
-                background: days >= 30 ? "rgba(239,68,68,0.07)" : days >= 14 ? "rgba(245,158,11,0.07)" : "rgba(16,185,129,0.07)",
-                border: `1px solid ${lotColor(days)}30`,
-                borderRadius: 8, padding: "12px 16px",
-                display: "flex", alignItems: "center", gap: 14,
-              }}>
-                <div style={{ fontSize: 38, fontWeight: 700, color: lotColor(days), lineHeight: 1, fontFamily: "'JetBrains Mono', monospace" }}>
-                  {days}
-                </div>
+              <div style={{ background: days >= 30 ? "rgba(239,68,68,0.07)" : days >= 14 ? "rgba(245,158,11,0.07)" : "rgba(16,185,129,0.07)", border: `1px solid ${lotColor(days)}30`, borderRadius: 8, padding: "12px 16px", display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ fontSize: 38, fontWeight: 700, color: lotColor(days), lineHeight: 1, fontFamily: "'JetBrains Mono', monospace" }}>{days}</div>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: lotColor(days) }}>
-                    day{days !== 1 ? "s" : ""} since received {days >= 30 ? "⚠" : ""}
-                  </div>
-                  <div style={{ fontSize: 12, color: "#6E7681", marginTop: 3 }}>
-                    {lotLabel(days)} · Auto-calculated from date received · updates daily
-                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: lotColor(days) }}>day{days !== 1 ? "s" : ""} since received {days >= 30 ? "⚠" : ""}</div>
+                  <div style={{ fontSize: 12, color: "#6E7681", marginTop: 3 }}>{lotLabel(days)} · Auto-calculated · updates daily</div>
                 </div>
               </div>
             </div>
@@ -757,19 +710,8 @@ function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
           {/* ASSIGNMENT */}
           <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>ASSIGNMENT</div>
           <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
-            <div>
-              <FieldLabel>Assign Mechanic</FieldLabel>
-              <select value={form.mechanic_id} onChange={e => set("mechanic_id", e.target.value)}>
-                <option value="">— Unassigned —</option>
-                {mechanics.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-              </select>
-            </div>
-            <div>
-              <FieldLabel>Status</FieldLabel>
-              <select value={form.status} onChange={e => set("status", e.target.value)}>
-                {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
-              </select>
-            </div>
+            <div><FieldLabel>Assign Mechanic</FieldLabel><select value={form.mechanic_id} onChange={e => set("mechanic_id", e.target.value)}><option value="">— Unassigned —</option>{mechanics.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
+            <div><FieldLabel>Status</FieldLabel><select value={form.status} onChange={e => set("status", e.target.value)}>{STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}</select></div>
           </div>
 
           {/* TASK */}
@@ -780,13 +722,9 @@ function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
             <FieldErr msg={errs.task} />
           </div>
         </div>
-
-        {/* Footer */}
         <div style={{ padding: "16px 26px", borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <Btn variant="ghost" onClick={onClose} disabled={saving}>CANCEL</Btn>
-          <Btn variant="primary" onClick={handleSave} disabled={saving}>
-            {saving ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Spinner size={14} /> SAVING…</span> : mode === "create" ? "CREATE ORDER" : "SAVE CHANGES"}
-          </Btn>
+          <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Spinner size={14} /> SAVING…</span> : mode === "create" ? "CREATE ORDER" : "SAVE CHANGES"}</Btn>
         </div>
       </div>
     </div>
@@ -945,7 +883,6 @@ function WorkOrderTable({ orders, mechanics, onEdit, onDelete, onCreate, loading
     .filter(o => { const q = search.toLowerCase(); const mq = !q || [o.order_number, o.customer, o.make, o.model, o.vin, o.color].some(v => (v ?? "").toLowerCase().includes(q)); return mq && (filterStatus === "All" || o.status === filterStatus); })
     .sort((a, b) => { let va = a[sortField] ?? "", vb = b[sortField] ?? ""; if (typeof va === "string") va = va.toLowerCase(); if (typeof vb === "string") vb = vb.toLowerCase(); return sortDir === "asc" ? (va < vb ? -1 : va > vb ? 1 : 0) : (va > vb ? -1 : va < vb ? 1 : 0); });
   const TH = ({ label, field }) => (<th onClick={field ? () => toggleSort(field) : undefined} style={{ padding: "11px 13px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#6E7681", letterSpacing: "0.1em", whiteSpace: "nowrap", cursor: field ? "pointer" : "default", userSelect: "none" }} onMouseEnter={e => { if (field) e.currentTarget.style.color = "#8B949E"; }} onMouseLeave={e => { if (field) e.currentTarget.style.color = "#6E7681"; }}>{label}{field && <span style={{ marginLeft: 4, color: sortField === field ? "#F59E0B" : "#404953" }}>{sortField === field ? (sortDir === "asc" ? "↑" : "↓") : "↕"}</span>}</th>);
-
   return (
     <div>
       <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
@@ -978,26 +915,14 @@ function WorkOrderTable({ orders, mechanics, onEdit, onDelete, onCreate, loading
                   <tr key={o.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", transition: "background .1s" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.018)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                     <td style={{ padding: "13px 13px" }}><span className="mono" style={{ fontSize: 13, color: "#F59E0B", fontWeight: 600 }}>{o.order_number}</span></td>
                     <td style={{ padding: "13px 13px" }}><div style={{ fontWeight: 600, fontSize: 14 }}>{o.customer}</div></td>
-                    <td style={{ padding: "13px 13px" }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{o.year} {o.make} {o.model}</div>
-                      <div className="mono" style={{ fontSize: 11, color: "#6E7681", marginTop: 2 }}>{o.vin}</div>
-                    </td>
-                    <td style={{ padding: "13px 13px" }}>
-                      {o.color
-                        ? <div style={{ display: "flex", alignItems: "center", gap: 7 }}><ColorDot color={o.color} size={12} /><span style={{ fontSize: 13, color: "#C9D1D9" }}>{o.color}</span></div>
-                        : <span style={{ color: "#484f58", fontSize: 12 }}>—</span>}
-                    </td>
+                    <td style={{ padding: "13px 13px" }}><div style={{ fontSize: 13, fontWeight: 600 }}>{o.year} {o.make} {o.model}</div><div className="mono" style={{ fontSize: 11, color: "#6E7681", marginTop: 2 }}>{o.vin}</div></td>
+                    <td style={{ padding: "13px 13px" }}>{o.color ? <div style={{ display: "flex", alignItems: "center", gap: 7 }}><ColorDot color={o.color} size={12} /><span style={{ fontSize: 13, color: "#C9D1D9" }}>{o.color}</span></div> : <span style={{ color: "#484f58", fontSize: 12 }}>—</span>}</td>
                     <td style={{ padding: "13px 13px" }}><span className="mono" style={{ fontSize: 12, color: "#8B949E" }}>{fmtDate(o.date_received)}</span></td>
                     <td style={{ padding: "13px 13px" }}><LotBadge dateReceived={o.date_received} /></td>
                     <td style={{ padding: "13px 13px" }}><span className="mono" style={{ fontSize: 12, color: "#8B949E" }}>{fmtDate(o.date_assigned)}</span></td>
                     <td style={{ padding: "13px 13px" }}><div style={{ fontSize: 13, color: "#8B949E" }}>{mechName(o.mechanic_id)}</div></td>
                     <td style={{ padding: "13px 13px" }}><StatusBadge status={o.status} /></td>
-                    <td style={{ padding: "13px 13px" }}>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <Btn variant="blue" onClick={() => onEdit(o)}   style={{ padding: "5px 10px", fontSize: 11 }}>EDIT</Btn>
-                        <Btn variant="red"  onClick={() => onDelete(o)} style={{ padding: "5px 10px", fontSize: 11 }}>DEL</Btn>
-                      </div>
-                    </td>
+                    <td style={{ padding: "13px 13px" }}><div style={{ display: "flex", gap: 6 }}><Btn variant="blue" onClick={() => onEdit(o)} style={{ padding: "5px 10px", fontSize: 11 }}>EDIT</Btn><Btn variant="red" onClick={() => onDelete(o)} style={{ padding: "5px 10px", fontSize: 11 }}>DEL</Btn></div></td>
                   </tr>
                 ))}
               </tbody>
@@ -1074,7 +999,7 @@ function ManagerDashboard({ user, onLogout }) {
           <TAB id="messages" label="MESSAGES"    badge={unreadTotal} />
         </div>
         <ErrBanner msg={dbError} />
-        {activeTab === "orders" && <><StatsCards orders={orders} /><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={() => setModal("create")} onEdit={o => { setSelected(o); setModal("edit"); }} onDelete={o => { setSelected(o); setModal("delete"); }} /></>}
+        {activeTab === "orders"   && <><StatsCards orders={orders} /><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={() => setModal("create")} onEdit={o => { setSelected(o); setModal("edit"); }} onDelete={o => { setSelected(o); setModal("delete"); }} /></>}
         {activeTab === "team"     && <MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={() => setShowAddMech(true)} onDelete={m => setSelectedMech(m)} />}
         {activeTab === "messages" && <MessagingPanel currentUser={user} mechanics={mechanics} />}
       </div>
@@ -1100,8 +1025,50 @@ function MechanicDashboard({ user, onLogout }) {
   useEffect(() => { loadOrders(); loadUnread(); supabase.from("profiles").select("*").eq("role", "manager").single().then(({ data }) => setManagerProfile(data)); }, []);
   useEffect(() => { const ch = supabase.channel("mech-unread").on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` }, () => loadUnread()).subscribe(); return () => supabase.removeChannel(ch); }, []);
 
-  const handleStatus = async (id, status) => { const { error } = await supabase.from("work_orders").update({ status, updated_at: todayStr() }).eq("id", id); if (error) { setDbError(error.message); return; } setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o)); };
-  const cols = { "Pending": { color: "#F59E0B", items: orders.filter(o => o.status === "Pending") }, "In Progress": { color: "#3B82F6", items: orders.filter(o => o.status === "In Progress") }, "Completed": { color: "#10B981", items: orders.filter(o => o.status === "Completed") } };
+  // ── KEY CHANGE: handleStatus now auto-messages manager on completion ──
+  const handleStatus = async (id, status) => {
+    const { error } = await supabase.from("work_orders")
+      .update({ status, updated_at: todayStr() }).eq("id", id);
+    if (error) { setDbError(error.message); return; }
+
+    // Update local state
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+
+    // Auto-notify manager when order is marked Completed
+    if (status === "Completed") {
+      const order = orders.find(o => o.id === id);
+      if (!order) return;
+
+      const { data: manager } = await supabase
+        .from("profiles").select("id").eq("role", "manager").single();
+      if (!manager) return;
+
+      const colorStr = order.color ? ` ${order.color}` : "";
+      const days     = daysOnLot(order.date_received);
+      const dateStr  = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+      const body =
+        `✅ Work order ${order.order_number} has been completed.\n\n` +
+        `Customer: ${order.customer}\n` +
+        `Vehicle: ${order.year}${colorStr} ${order.make} ${order.model}\n` +
+        `VIN: ${order.vin}\n` +
+        (days !== null ? `Days on lot: ${days}\n` : "") +
+        `Completed by: ${user.full_name}\n` +
+        `Date: ${dateStr}`;
+
+      await supabase.from("messages").insert({
+        sender_id:   user.id,
+        receiver_id: manager.id,
+        body,
+      });
+    }
+  };
+
+  const cols = {
+    "Pending":     { color: "#F59E0B", items: orders.filter(o => o.status === "Pending")     },
+    "In Progress": { color: "#3B82F6", items: orders.filter(o => o.status === "In Progress") },
+    "Completed":   { color: "#10B981", items: orders.filter(o => o.status === "Completed")   },
+  };
 
   const TAB = ({ id, label, badge }) => (<button onClick={() => { setActiveTab(id); if (id === "messages") loadUnread(); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", marginRight: 28, fontSize: 13, fontWeight: 700, letterSpacing: "0.07em", color: activeTab === id ? "#E6EDF3" : "#6E7681", borderBottom: activeTab === id ? "2px solid #3B82F6" : "2px solid transparent", transition: "color .15s, border-color .15s", fontFamily: "'Rajdhani', sans-serif" }}>{label}{badge > 0 && <span style={{ marginLeft: 6, background: "#EF4444", borderRadius: 10, padding: "1px 6px", fontSize: 10, color: "#fff", fontWeight: 700 }}>{badge}</span>}</button>);
 
@@ -1115,7 +1082,7 @@ function MechanicDashboard({ user, onLogout }) {
         {activeTab === "orders" && (
           <>
             <div style={{ background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#6E7681", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 14 }}>ℹ️</span><span><strong style={{ color: "#8B949E" }}>Mechanic view: </strong>Read-only. You can only change the <strong style={{ color: "#3B82F6" }}>status</strong> of your orders.</span>
+              <span style={{ fontSize: 14 }}>ℹ️</span><span><strong style={{ color: "#8B949E" }}>Mechanic view: </strong>Read-only. Change the <strong style={{ color: "#3B82F6" }}>status</strong> of your orders. Manager is auto-notified on completion.</span>
             </div>
             {loading ? (<div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 80, gap: 12, color: "#8B949E" }}><Spinner /> Loading…</div>)
               : orders.length === 0 ? (<div style={{ textAlign: "center", padding: "80px 24px", background: "#1C2333", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, color: "#6E7681" }}><div style={{ fontSize: 44, marginBottom: 14 }}>🔧</div><div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No Orders Assigned</div></div>)
@@ -1130,7 +1097,7 @@ function MechanicDashboard({ user, onLogout }) {
                       </div>
                       {col.items.length === 0 ? (<div style={{ border: "1px dashed rgba(255,255,255,0.07)", borderRadius: 10, padding: "28px 16px", textAlign: "center", color: "#484f58", fontSize: 13 }}>No orders here</div>)
                         : col.items.map(o => {
-                          const m   = STATUS_META[o.status] ?? STATUS_META["Pending"];
+                          const m    = STATUS_META[o.status] ?? STATUS_META["Pending"];
                           const days = daysOnLot(o.date_received);
                           return (
                             <div key={o.id} className="slide-in" style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.06)", borderLeft: `3px solid ${m.color}`, borderRadius: 10, padding: 16, marginBottom: 10, transition: "transform .15s, box-shadow .15s" }} onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 24px rgba(0,0,0,0.35)"; }} onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
@@ -1139,25 +1106,26 @@ function MechanicDashboard({ user, onLogout }) {
                                 <StatusBadge status={o.status} />
                               </div>
                               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{o.customer}</div>
-                              {/* Vehicle + color */}
                               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#8B949E", marginBottom: 6 }}>
                                 <span>{o.year} {o.make} {o.model}</span>
                                 {o.color && <><ColorDot color={o.color} size={10} /><span>{o.color}</span></>}
                               </div>
-                              {/* Dates + Days on Lot */}
                               {(o.date_received || o.date_assigned) && (
                                 <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
                                   {o.date_received && <span style={{ fontSize: 11, color: "#6E7681" }}>📥 {fmtDate(o.date_received)}</span>}
-                                  {days !== null && (
-                                    <span style={{ fontSize: 11, fontWeight: 700, color: lotColor(days) }}>
-                                      · {days}d on lot {days >= 30 ? "⚠" : ""}
-                                    </span>
-                                  )}
+                                  {days !== null && <span style={{ fontSize: 11, fontWeight: 700, color: lotColor(days) }}>· {days}d on lot {days >= 30 ? "⚠" : ""}</span>}
                                   {o.date_assigned && <span style={{ fontSize: 11, color: "#6E7681" }}>🔧 {fmtDate(o.date_assigned)}</span>}
                                 </div>
                               )}
                               <div style={{ fontSize: 13, color: "#C9D1D9", lineHeight: 1.55, borderLeft: "2px solid rgba(245,158,11,0.25)", padding: "8px 10px", marginBottom: 16, background: "rgba(255,255,255,0.02)", borderRadius: "0 6px 6px 0" }}>{o.task}</div>
-                              <div><div style={{ fontSize: 10, fontWeight: 700, color: "#6E7681", letterSpacing: "0.1em", marginBottom: 6 }}>UPDATE STATUS</div><select value={o.status} onChange={e => handleStatus(o.id, e.target.value)} style={{ fontSize: 13 }}>{STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}</select></div>
+                              <div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: "#6E7681", letterSpacing: "0.1em", marginBottom: 6 }}>
+                                  UPDATE STATUS {o.status !== "Completed" && <span style={{ color: "#484f58", fontWeight: 400 }}>· manager notified on completion</span>}
+                                </div>
+                                <select value={o.status} onChange={e => handleStatus(o.id, e.target.value)} style={{ fontSize: 13 }}>
+                                  {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
+                                </select>
+                              </div>
                             </div>
                           );
                         })}

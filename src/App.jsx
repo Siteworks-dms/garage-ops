@@ -722,8 +722,7 @@ function MechanicDashboard({user,onLogout}){
                     </div>
                   </div>
                 </div>
-              );}
-            }
+              );})}
           </>
         )}
         {tab==="messages"&&<MessagingPanel currentUser={user} mechanics={mgr?[mgr]:[]}/>}
@@ -761,11 +760,7 @@ export default function App(){
     });
     return()=>subscription.unsubscribe();
   },[]);
-  const logout = async () => {
-  await supabase.auth.signOut();
-  setUser(null);
-  window.location.href = window.location.origin;
-};
+  const logout=async()=>{await supabase.auth.signOut();setUser(null);};
   if(checking)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0D1117"}}><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16}}><div style={{width:36,height:36,border:"3px solid rgba(245,158,11,0.2)",borderTop:"3px solid #F59E0B",borderRadius:"50%",animation:"spin .7s linear infinite"}}/><div style={{color:"#6E7681",fontSize:14}}>LOADING…</div></div></div>;
   if(!user)return<LoginScreen onLogin={setUser}/>;
   if(user.role==="manager")return<ManagerDashboard user={user} onLogout={logout}/>;

@@ -13,12 +13,10 @@ const STATUS_META = {
   "In Progress": { color: "#3B82F6", bg: "rgba(59,130,246,0.12)",  border: "rgba(59,130,246,0.3)"  },
   "Completed":   { color: "#10B981", bg: "rgba(16,185,129,0.12)",  border: "rgba(16,185,129,0.3)"  },
 };
-
 const VEHICLE_COLORS = [
   "Black","White","Silver","Gray","Red","Blue","Green","Brown","Beige",
   "Orange","Yellow","Gold","Purple","Maroon","Navy","Champagne","Other",
 ];
-
 const MAKES = ["Acura","Audi","BMW","Buick","Cadillac","Chevrolet","Chrysler","Dodge","Ford","Genesis","GMC","Honda","Hyundai","Infiniti","Jeep","Kia","Lexus","Lincoln","Mazda","Mercedes-Benz","Mitsubishi","Nissan","Ram","Subaru","Tesla","Toyota","Volkswagen","Volvo"];
 
 const GLOBAL_CSS = `
@@ -60,11 +58,16 @@ const GLOBAL_CSS = `
   }
 `;
 
-const todayStr = () => new Date().toISOString();
-const todayDate = () => new Date().toISOString().split("T")[0];
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const todayStr  = () => new Date().toISOString();
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 32 }, (_, i) => currentYear + 1 - i);
+
 function getInitials(name = "") { return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2); }
+
 function timeAgo(ts) {
   const diff = Date.now() - new Date(ts).getTime();
   const m = Math.floor(diff / 60000);
@@ -74,12 +77,38 @@ function timeAgo(ts) {
   if (h < 24) return `${h}h ago`;
   return new Date(ts).toLocaleDateString();
 }
+
 function fmtDate(d) {
   if (!d) return "—";
   return new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-// Color dot for vehicle color
+// Auto-calculates days from date_received to today
+function daysOnLot(dateReceived) {
+  if (!dateReceived) return null;
+  const received = new Date(dateReceived + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.floor((today - received) / (1000 * 60 * 60 * 24));
+  return diff < 0 ? 0 : diff;
+}
+
+// Color coding: green < 14d, amber 14-29d, red 30+d
+function lotColor(days) {
+  if (days === null) return "#6E7681";
+  if (days >= 30) return "#EF4444";
+  if (days >= 14) return "#F59E0B";
+  return "#10B981";
+}
+
+function lotLabel(days) {
+  if (days === null) return "";
+  if (days >= 30) return "⚠ Over 30 days";
+  if (days >= 14) return "Getting long";
+  return "Recent";
+}
+
+// Vehicle color dot
 const COLOR_MAP = {
   Black: "#1a1a1a", White: "#f0f0f0", Silver: "#C0C0C0", Gray: "#808080",
   Red: "#DC2626", Blue: "#2563EB", Green: "#16A34A", Brown: "#92400E",
@@ -89,8 +118,23 @@ const COLOR_MAP = {
 function ColorDot({ color, size = 12 }) {
   if (!color) return null;
   const hex = COLOR_MAP[color] ?? "#6E7681";
-  const needsBorder = color === "White" || color === "Beige" || color === "Champagne";
+  const needsBorder = ["White","Beige","Champagne"].includes(color);
   return <span style={{ display: "inline-block", width: size, height: size, borderRadius: "50%", background: hex, border: needsBorder ? "1px solid rgba(255,255,255,0.2)" : "none", flexShrink: 0, verticalAlign: "middle" }} />;
+}
+
+// Compact Days on Lot badge used in table + cards
+function LotBadge({ dateReceived, showLabel = false }) {
+  const d = daysOnLot(dateReceived);
+  if (d === null) return <span style={{ color: "#484f58", fontSize: 12 }}>—</span>;
+  const col = lotColor(d);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+      <span style={{ fontSize: 15, fontWeight: 700, color: col, lineHeight: 1 }}>{d}</span>
+      <span style={{ fontSize: 11, color: "#555d65" }}>days</span>
+      {d >= 30 && <span style={{ fontSize: 11, color: "#EF4444" }}>⚠</span>}
+      {showLabel && d >= 14 && <span style={{ fontSize: 11, color: col }}>· {lotLabel(d)}</span>}
+    </div>
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -121,7 +165,7 @@ function TVStatusPill({ status }) {
   };
   const m = meta[status] ?? meta["Pending"];
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: m.bg, color: m.color, borderRadius: 20, padding: "4px 12px", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: m.bg, color: m.color, borderRadius: 20, padding: "4px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
       <span style={{ width: 7, height: 7, borderRadius: "50%", background: m.color, display: "inline-block", ...(status === "In Progress" ? { animation: "pulse 1.5s ease-in-out infinite" } : {}) }} />
       {status}
     </span>
@@ -159,42 +203,43 @@ function TVMechanicCard({ mechanic, orders }) {
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 0" }}>
         {orders.length === 0 ? (
           <div style={{ padding: "24px 22px", textAlign: "center", color: "#484f58", fontSize: 15 }}>No orders assigned</div>
-        ) : orders.map(o => (
-          <div key={o.id} style={{ padding: "12px 22px", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: 14, background: o.status === "In Progress" ? "rgba(59,130,246,0.04)" : "transparent" }}>
-            <div style={{ width: 4, alignSelf: "stretch", borderRadius: 2, background: o.status === "Pending" ? "#F59E0B" : o.status === "In Progress" ? "#3B82F6" : "#10B981", flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "#F59E0B", fontWeight: 600 }}>{o.order_number}</span>
-                <span style={{ fontSize: 15, fontWeight: 700 }}>{o.customer}</span>
-                {o.color && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: "#8B949E" }}>
-                    <ColorDot color={o.color} size={10} /> {o.color}
-                  </span>
-                )}
-              </div>
-              <div style={{ fontSize: 14, color: "#8B949E", marginBottom: 4 }}>{o.year} {o.make} {o.model}</div>
-              {/* Date fields on TV */}
-              {(o.date_received || o.date_assigned) && (
-                <div style={{ display: "flex", gap: 16, marginBottom: 4, flexWrap: "wrap" }}>
-                  {o.date_received && <span style={{ fontSize: 11, color: "#6E7681" }}>📥 Received: {fmtDate(o.date_received)}</span>}
-                  {o.date_assigned && <span style={{ fontSize: 11, color: "#6E7681" }}>🔧 Assigned: {fmtDate(o.date_assigned)}</span>}
+        ) : orders.map(o => {
+          const days = daysOnLot(o.date_received);
+          return (
+            <div key={o.id} style={{ padding: "12px 22px", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: 14, background: o.status === "In Progress" ? "rgba(59,130,246,0.04)" : "transparent" }}>
+              <div style={{ width: 4, alignSelf: "stretch", borderRadius: 2, background: o.status === "Pending" ? "#F59E0B" : o.status === "In Progress" ? "#3B82F6" : "#10B981", flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "#F59E0B", fontWeight: 600 }}>{o.order_number}</span>
+                  <span style={{ fontSize: 15, fontWeight: 700 }}>{o.customer}</span>
+                  {o.color && <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: "#8B949E" }}><ColorDot color={o.color} size={10} /> {o.color}</span>}
                 </div>
-              )}
-              <div style={{ fontSize: 13, color: "#C9D1D9", lineHeight: 1.45, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{o.task}</div>
+                <div style={{ fontSize: 14, color: "#8B949E", marginBottom: 4 }}>{o.year} {o.make} {o.model}</div>
+                <div style={{ display: "flex", gap: 14, marginBottom: 4, flexWrap: "wrap", alignItems: "center" }}>
+                  {o.date_received && <span style={{ fontSize: 11, color: "#6E7681" }}>📥 {fmtDate(o.date_received)}</span>}
+                  {o.date_assigned && <span style={{ fontSize: 11, color: "#6E7681" }}>🔧 {fmtDate(o.date_assigned)}</span>}
+                  {days !== null && (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: lotColor(days) }}>
+                      {days}d on lot {days >= 30 ? "⚠" : ""}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 13, color: "#C9D1D9", lineHeight: 1.45, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{o.task}</div>
+              </div>
+              <div style={{ flexShrink: 0 }}><TVStatusPill status={o.status} /></div>
             </div>
-            <div style={{ flexShrink: 0 }}><TVStatusPill status={o.status} /></div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
 function TVDisplay() {
-  const [mechanics,   setMechanics]   = useState([]);
-  const [orders,      setOrders]      = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [lastUpdate,  setLastUpdate]  = useState(new Date());
+  const [mechanics,  setMechanics]  = useState([]);
+  const [orders,     setOrders]     = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
 
   const load = async () => {
     const [{ data: mechs }, { data: ords }] = await Promise.all([
@@ -217,6 +262,7 @@ function TVDisplay() {
   const getOrdersForMech = id => orders.filter(o => o.mechanic_id === id);
   const totalActive  = orders.filter(o => o.status === "In Progress").length;
   const totalPending = orders.filter(o => o.status === "Pending").length;
+  const longOnLot    = orders.filter(o => daysOnLot(o.date_received) >= 30).length;
   const cols = mechanics.length <= 2 ? mechanics.length : mechanics.length <= 4 ? 2 : 3;
 
   if (loading) return (
@@ -228,6 +274,7 @@ function TVDisplay() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0D1117", display: "flex", flexDirection: "column" }}>
+      {/* Header */}
       <div style={{ padding: "16px 28px", background: "#161B22", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, background: "rgba(245,158,11,0.1)", border: "1.5px solid rgba(245,158,11,0.3)", borderRadius: 12 }}>
@@ -238,8 +285,13 @@ function TVDisplay() {
             <div style={{ fontSize: 11, color: "#6E7681", letterSpacing: "0.12em" }}>WORKSHOP FLOOR DISPLAY</div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-          {[{ label: "MECHANICS", value: mechanics.length, color: "#E6EDF3" }, { label: "IN PROGRESS", value: totalActive, color: "#3B82F6" }, { label: "PENDING", value: totalPending, color: "#F59E0B" }].map(s => (
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {[
+            { label: "MECHANICS",   value: mechanics.length,  color: "#E6EDF3" },
+            { label: "IN PROGRESS", value: totalActive,       color: "#3B82F6" },
+            { label: "PENDING",     value: totalPending,      color: "#F59E0B" },
+            { label: "30+ DAYS",    value: longOnLot,         color: longOnLot > 0 ? "#EF4444" : "#555d65" },
+          ].map(s => (
             <div key={s.label} style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "8px 16px", textAlign: "center", minWidth: 80 }}>
               <div style={{ fontSize: 10, color: "#6E7681", letterSpacing: "0.1em", marginBottom: 4 }}>{s.label}</div>
               <div style={{ fontSize: 26, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
@@ -253,6 +305,7 @@ function TVDisplay() {
         <TVClock />
       </div>
 
+      {/* Grid */}
       <div style={{ flex: 1, padding: "20px 24px", overflowY: "auto" }}>
         {mechanics.length === 0 ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 16, color: "#484f58" }}>
@@ -266,6 +319,7 @@ function TVDisplay() {
         )}
       </div>
 
+      {/* Ticker */}
       <div style={{ height: 36, background: "#161B22", borderTop: "1px solid rgba(255,255,255,0.06)", overflow: "hidden", display: "flex", alignItems: "center", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 16, flexShrink: 0, borderRight: "1px solid rgba(255,255,255,0.08)", paddingRight: 16, height: "100%" }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", animation: "pulse 1.5s ease-in-out infinite" }} />
@@ -273,8 +327,11 @@ function TVDisplay() {
         </div>
         <div style={{ overflow: "hidden", flex: 1, position: "relative", height: "100%", display: "flex", alignItems: "center" }}>
           <div style={{ whiteSpace: "nowrap", animation: "ticker 40s linear infinite", fontSize: 13, color: "#8B949E", letterSpacing: "0.04em" }}>
-            {orders.length === 0 ? "  No active work orders at this time  ·  "
-              : orders.map(o => `  ${o.order_number} · ${o.customer} · ${o.year} ${o.color ? o.color + " " : ""}${o.make} ${o.model} · ${o.status}  ·`).join("  ")}
+            {orders.length === 0 ? "  No active work orders  ·  "
+              : orders.map(o => {
+                  const d = daysOnLot(o.date_received);
+                  return `  ${o.order_number} · ${o.customer} · ${o.year}${o.color ? " " + o.color : ""} ${o.make} ${o.model} · ${o.status}${d !== null ? " · " + d + "d on lot" : ""}  ·`;
+                }).join("  ")}
           </div>
         </div>
         <div style={{ paddingRight: 16, paddingLeft: 16, fontSize: 11, color: "#484f58", borderLeft: "1px solid rgba(255,255,255,0.08)", height: "100%", display: "flex", alignItems: "center", flexShrink: 0 }}>
@@ -339,7 +396,6 @@ function MessagingPanel({ currentUser, mechanics }) {
   const isManager = currentUser.role === "manager";
 
   const loadAllMessages = async () => { const { data } = await supabase.from("messages").select("*"); setAllMessages(data ?? []); };
-
   useEffect(() => { loadAllMessages(); }, []);
 
   const loadConversation = async (mechId) => {
@@ -467,7 +523,12 @@ function LoginScreen({ onLogin }) {
       onLogin({ ...data.user, ...profile });
     } catch { setError("Unexpected error."); setLoading(false); }
   };
-  const demo = [{ label: "Manager", email: "manager@garage.com", pass: "garage123", color: "#F59E0B" }, { label: "Mechanic", email: "mike@garage.com", pass: "wrench1", color: "#3B82F6" }, { label: "Mechanic", email: "sarah@garage.com", pass: "tools2", color: "#10B981" }, { label: "Mechanic", email: "carlos@garage.com", pass: "motor3", color: "#8B5CF6" }];
+  const demo = [
+    { label: "Manager",  email: "manager@garage.com", pass: "garage123", color: "#F59E0B" },
+    { label: "Mechanic", email: "mike@garage.com",    pass: "wrench1",   color: "#3B82F6" },
+    { label: "Mechanic", email: "sarah@garage.com",   pass: "tools2",    color: "#10B981" },
+    { label: "Mechanic", email: "carlos@garage.com",  pass: "motor3",    color: "#8B5CF6" },
+  ];
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(ellipse at 50% 0%, #1a1200 0%, #0D1117 60%)", padding: 20 }}>
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", backgroundImage: "radial-gradient(circle, rgba(245,158,11,0.045) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
@@ -528,13 +589,21 @@ function TopNav({ user, onLogout, unreadCount = 0 }) {
 
 function StatsCards({ orders }) {
   const t = orders.length, p = orders.filter(o => o.status === "Pending").length, ip = orders.filter(o => o.status === "In Progress").length, c = orders.filter(o => o.status === "Completed").length;
+  const longLot = orders.filter(o => daysOnLot(o.date_received) >= 30).length;
   return (
-    <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
-      {[{ label: "TOTAL ORDERS", value: t, color: "#E6EDF3" }, { label: "PENDING", value: p, color: "#F59E0B" }, { label: "IN PROGRESS", value: ip, color: "#3B82F6" }, { label: "COMPLETED", value: c, color: "#10B981" }].map(card => (
+    <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12, marginBottom: 24 }}>
+      {[
+        { label: "TOTAL ORDERS", value: t,       color: "#E6EDF3" },
+        { label: "PENDING",      value: p,       color: "#F59E0B" },
+        { label: "IN PROGRESS",  value: ip,      color: "#3B82F6" },
+        { label: "COMPLETED",    value: c,       color: "#10B981" },
+        { label: "30+ DAYS",     value: longLot, color: longLot > 0 ? "#EF4444" : "#555d65" },
+      ].map(card => (
         <div key={card.label} style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "18px 20px" }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: "#6E7681", letterSpacing: "0.12em", marginBottom: 10 }}>{card.label}</div>
           <div style={{ fontSize: 34, fontWeight: 700, color: card.color, lineHeight: 1 }}>{card.value}</div>
-          {t > 0 && card.label !== "TOTAL ORDERS" && <div style={{ fontSize: 11, color: "#6E7681", marginTop: 6 }}>{Math.round((card.value / t) * 100)}% of total</div>}
+          {t > 0 && !["TOTAL ORDERS","30+ DAYS"].includes(card.label) && <div style={{ fontSize: 11, color: "#6E7681", marginTop: 6 }}>{Math.round((card.value / t) * 100)}% of total</div>}
+          {card.label === "30+ DAYS" && longLot > 0 && <div style={{ fontSize: 11, color: "#EF4444", marginTop: 6 }}>Needs attention</div>}
         </div>
       ))}
     </div>
@@ -542,7 +611,7 @@ function StatsCards({ orders }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ORDER MODAL — CREATE / EDIT (with new fields)
+// ORDER MODAL
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const BLANK_ORDER = {
@@ -584,8 +653,7 @@ function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
     });
   };
 
-  // Shared date input style
-  const dateInputStyle = { fontSize: 14, padding: "8px 12px", width: "100%", cursor: "pointer" };
+  const days = daysOnLot(form.date_received);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 200, backdropFilter: "blur(3px)" }}>
@@ -600,20 +668,17 @@ function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#6E7681", fontSize: 24, cursor: "pointer", lineHeight: 1, padding: "2px 6px" }}>×</button>
         </div>
 
-        {/* Body */}
         <div style={{ padding: "24px 26px" }}>
 
-          {/* ── Section: Customer ── */}
+          {/* CUSTOMER */}
           <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>CUSTOMER</div>
-          <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <FieldLabel required>Customer Name</FieldLabel>
-              <input value={form.customer} onChange={e => set("customer", e.target.value)} placeholder="Full name" />
-              <FieldErr msg={errs.customer} />
-            </div>
+          <div style={{ marginBottom: 22 }}>
+            <FieldLabel required>Customer Name</FieldLabel>
+            <input value={form.customer} onChange={e => set("customer", e.target.value)} placeholder="Full name" />
+            <FieldErr msg={errs.customer} />
           </div>
 
-          {/* ── Section: Vehicle ── */}
+          {/* VEHICLE */}
           <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>VEHICLE DETAILS</div>
           <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
             <div>
@@ -651,20 +716,45 @@ function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
             </div>
           </div>
 
-          {/* ── Section: Dates ── */}
+          {/* DATES */}
           <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>DATES</div>
-          <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
+          <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
             <div>
               <FieldLabel>Date Vehicle Received in Inventory</FieldLabel>
-              <input type="date" value={form.date_received} onChange={e => set("date_received", e.target.value)} style={dateInputStyle} />
+              <input type="date" value={form.date_received} onChange={e => set("date_received", e.target.value)} style={{ fontSize: 14 }} />
             </div>
             <div>
               <FieldLabel>Date Vehicle Assigned to Mechanic</FieldLabel>
-              <input type="date" value={form.date_assigned} onChange={e => set("date_assigned", e.target.value)} style={dateInputStyle} />
+              <input type="date" value={form.date_assigned} onChange={e => set("date_assigned", e.target.value)} style={{ fontSize: 14 }} />
             </div>
           </div>
 
-          {/* ── Section: Assignment ── */}
+          {/* DAYS ON LOT — auto calculated */}
+          {form.date_received && (
+            <div style={{ marginBottom: 22 }}>
+              <FieldLabel>Days on Lot</FieldLabel>
+              <div style={{
+                background: days >= 30 ? "rgba(239,68,68,0.07)" : days >= 14 ? "rgba(245,158,11,0.07)" : "rgba(16,185,129,0.07)",
+                border: `1px solid ${lotColor(days)}30`,
+                borderRadius: 8, padding: "12px 16px",
+                display: "flex", alignItems: "center", gap: 14,
+              }}>
+                <div style={{ fontSize: 38, fontWeight: 700, color: lotColor(days), lineHeight: 1, fontFamily: "'JetBrains Mono', monospace" }}>
+                  {days}
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: lotColor(days) }}>
+                    day{days !== 1 ? "s" : ""} since received {days >= 30 ? "⚠" : ""}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#6E7681", marginTop: 3 }}>
+                    {lotLabel(days)} · Auto-calculated from date received · updates daily
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ASSIGNMENT */}
           <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>ASSIGNMENT</div>
           <div className="modal-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
             <div>
@@ -682,7 +772,7 @@ function OrderModal({ mode, order, mechanics, onSave, onClose, saving }) {
             </div>
           </div>
 
-          {/* ── Section: Task ── */}
+          {/* TASK */}
           <div style={{ fontSize: 10, fontWeight: 700, color: "#484f58", letterSpacing: "0.12em", marginBottom: 12 }}>TASK</div>
           <div>
             <FieldLabel required>Task Description</FieldLabel>
@@ -816,7 +906,7 @@ function MechanicsPanel({ mechanics, orders, onAdd, onDelete, loading }) {
         ) : (
           <div className="mechanic-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
             {mechanics.map(m => {
-              const total = cnt(m.id), pending = cnt(m.id, "Pending"), inProg = cnt(m.id, "In Progress"), done = cnt(m.id, "Completed");
+              const total = cnt(m.id), pending = cnt(m.id,"Pending"), inProg = cnt(m.id,"In Progress"), done = cnt(m.id,"Completed");
               return (
                 <div key={m.id} style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "20px 20px 16px", transition: "border-color .15s" }} onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"} onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
@@ -844,7 +934,7 @@ function MechanicsPanel({ mechanics, orders, onAdd, onDelete, loading }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// WORK ORDERS TABLE (with new columns)
+// WORK ORDERS TABLE
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function WorkOrderTable({ orders, mechanics, onEdit, onDelete, onCreate, loading }) {
@@ -854,7 +944,7 @@ function WorkOrderTable({ orders, mechanics, onEdit, onDelete, onCreate, loading
   const filtered = orders
     .filter(o => { const q = search.toLowerCase(); const mq = !q || [o.order_number, o.customer, o.make, o.model, o.vin, o.color].some(v => (v ?? "").toLowerCase().includes(q)); return mq && (filterStatus === "All" || o.status === filterStatus); })
     .sort((a, b) => { let va = a[sortField] ?? "", vb = b[sortField] ?? ""; if (typeof va === "string") va = va.toLowerCase(); if (typeof vb === "string") vb = vb.toLowerCase(); return sortDir === "asc" ? (va < vb ? -1 : va > vb ? 1 : 0) : (va > vb ? -1 : va < vb ? 1 : 0); });
-  const TH = ({ label, field }) => (<th onClick={field ? () => toggleSort(field) : undefined} style={{ padding: "11px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#6E7681", letterSpacing: "0.1em", whiteSpace: "nowrap", cursor: field ? "pointer" : "default", userSelect: "none" }} onMouseEnter={e => { if (field) e.currentTarget.style.color = "#8B949E"; }} onMouseLeave={e => { if (field) e.currentTarget.style.color = "#6E7681"; }}>{label}{field && <span style={{ marginLeft: 4, color: sortField === field ? "#F59E0B" : "#404953" }}>{sortField === field ? (sortDir === "asc" ? "↑" : "↓") : "↕"}</span>}</th>);
+  const TH = ({ label, field }) => (<th onClick={field ? () => toggleSort(field) : undefined} style={{ padding: "11px 13px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#6E7681", letterSpacing: "0.1em", whiteSpace: "nowrap", cursor: field ? "pointer" : "default", userSelect: "none" }} onMouseEnter={e => { if (field) e.currentTarget.style.color = "#8B949E"; }} onMouseLeave={e => { if (field) e.currentTarget.style.color = "#6E7681"; }}>{label}{field && <span style={{ marginLeft: 4, color: sortField === field ? "#F59E0B" : "#404953" }}>{sortField === field ? (sortDir === "asc" ? "↑" : "↓") : "↕"}</span>}</th>);
 
   return (
     <div>
@@ -866,47 +956,46 @@ function WorkOrderTable({ orders, mechanics, onEdit, onDelete, onCreate, loading
       <div style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}>
         {loading ? (<div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 60, gap: 12, color: "#8B949E" }}><Spinner /> Loading orders…</div>) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1000 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1080 }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                  <TH label="ORDER #"    field="order_number" />
-                  <TH label="CUSTOMER"   field="customer" />
+                  <TH label="ORDER #"     field="order_number" />
+                  <TH label="CUSTOMER"    field="customer" />
                   <TH label="VEHICLE" />
                   <TH label="COLOR" />
-                  <TH label="RECEIVED"   field="date_received" />
-                  <TH label="ASSIGNED"   field="date_assigned" />
+                  <TH label="RECEIVED"    field="date_received" />
+                  <TH label="DAYS ON LOT" field="date_received" />
+                  <TH label="ASSIGNED"    field="date_assigned" />
                   <TH label="MECHANIC" />
-                  <TH label="STATUS"     field="status" />
+                  <TH label="STATUS"      field="status" />
                   <TH label="ACTIONS" />
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={9} style={{ padding: "48px 24px", textAlign: "center", color: "#6E7681" }}><div style={{ fontSize: 28, marginBottom: 10 }}>🔍</div><div>No work orders match</div></td></tr>
+                  <tr><td colSpan={10} style={{ padding: "48px 24px", textAlign: "center", color: "#6E7681" }}><div style={{ fontSize: 28, marginBottom: 10 }}>🔍</div><div>No work orders match</div></td></tr>
                 ) : filtered.map((o, i) => (
                   <tr key={o.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", transition: "background .1s" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.018)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <td style={{ padding: "13px 14px" }}><span className="mono" style={{ fontSize: 13, color: "#F59E0B", fontWeight: 600 }}>{o.order_number}</span></td>
-                    <td style={{ padding: "13px 14px" }}><div style={{ fontWeight: 600, fontSize: 14 }}>{o.customer}</div></td>
-                    <td style={{ padding: "13px 14px" }}>
+                    <td style={{ padding: "13px 13px" }}><span className="mono" style={{ fontSize: 13, color: "#F59E0B", fontWeight: 600 }}>{o.order_number}</span></td>
+                    <td style={{ padding: "13px 13px" }}><div style={{ fontWeight: 600, fontSize: 14 }}>{o.customer}</div></td>
+                    <td style={{ padding: "13px 13px" }}>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{o.year} {o.make} {o.model}</div>
                       <div className="mono" style={{ fontSize: 11, color: "#6E7681", marginTop: 2 }}>{o.vin}</div>
                     </td>
-                    <td style={{ padding: "13px 14px" }}>
-                      {o.color ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                          <ColorDot color={o.color} size={12} />
-                          <span style={{ fontSize: 13, color: "#C9D1D9" }}>{o.color}</span>
-                        </div>
-                      ) : <span style={{ color: "#484f58", fontSize: 12 }}>—</span>}
+                    <td style={{ padding: "13px 13px" }}>
+                      {o.color
+                        ? <div style={{ display: "flex", alignItems: "center", gap: 7 }}><ColorDot color={o.color} size={12} /><span style={{ fontSize: 13, color: "#C9D1D9" }}>{o.color}</span></div>
+                        : <span style={{ color: "#484f58", fontSize: 12 }}>—</span>}
                     </td>
-                    <td style={{ padding: "13px 14px" }}><span className="mono" style={{ fontSize: 12, color: "#8B949E" }}>{fmtDate(o.date_received)}</span></td>
-                    <td style={{ padding: "13px 14px" }}><span className="mono" style={{ fontSize: 12, color: "#8B949E" }}>{fmtDate(o.date_assigned)}</span></td>
-                    <td style={{ padding: "13px 14px" }}><div style={{ fontSize: 13, color: "#8B949E" }}>{mechName(o.mechanic_id)}</div></td>
-                    <td style={{ padding: "13px 14px" }}><StatusBadge status={o.status} /></td>
-                    <td style={{ padding: "13px 14px" }}>
+                    <td style={{ padding: "13px 13px" }}><span className="mono" style={{ fontSize: 12, color: "#8B949E" }}>{fmtDate(o.date_received)}</span></td>
+                    <td style={{ padding: "13px 13px" }}><LotBadge dateReceived={o.date_received} /></td>
+                    <td style={{ padding: "13px 13px" }}><span className="mono" style={{ fontSize: 12, color: "#8B949E" }}>{fmtDate(o.date_assigned)}</span></td>
+                    <td style={{ padding: "13px 13px" }}><div style={{ fontSize: 13, color: "#8B949E" }}>{mechName(o.mechanic_id)}</div></td>
+                    <td style={{ padding: "13px 13px" }}><StatusBadge status={o.status} /></td>
+                    <td style={{ padding: "13px 13px" }}>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <Btn variant="blue" onClick={() => onEdit(o)}   style={{ padding: "5px 12px", fontSize: 11 }}>EDIT</Btn>
-                        <Btn variant="red"  onClick={() => onDelete(o)} style={{ padding: "5px 12px", fontSize: 11 }}>DEL</Btn>
+                        <Btn variant="blue" onClick={() => onEdit(o)}   style={{ padding: "5px 10px", fontSize: 11 }}>EDIT</Btn>
+                        <Btn variant="red"  onClick={() => onDelete(o)} style={{ padding: "5px 10px", fontSize: 11 }}>DEL</Btn>
                       </div>
                     </td>
                   </tr>
@@ -955,6 +1044,7 @@ function ManagerDashboard({ user, onLogout }) {
   };
 
   const handleDeleteOrder = async () => { setDeleting(true); setDbError(""); const { error } = await supabase.from("work_orders").delete().eq("id", selected.id); if (error) { setDbError(error.message); setDeleting(false); return; } await loadOrders(); closeOrder(); };
+
   const handleDeleteMechanic = async () => {
     setDeletingMech(true); setDbError("");
     await supabase.from("work_orders").update({ mechanic_id: null, updated_at: todayStr() }).eq("mechanic_id", selectedMech.id);
@@ -973,7 +1063,7 @@ function ManagerDashboard({ user, onLogout }) {
   return (
     <div style={{ background: "#0D1117", minHeight: "100vh" }}>
       <TopNav user={user} onLogout={onLogout} unreadCount={unreadTotal} />
-      <div className="page-pad" style={{ padding: "28px 24px", maxWidth: 1440, margin: "0 auto" }}>
+      <div className="page-pad" style={{ padding: "28px 24px", maxWidth: 1600, margin: "0 auto" }}>
         <div style={{ marginBottom: 6 }}>
           <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.05em" }}>MANAGER DASHBOARD</h1>
           <p style={{ fontSize: 13, color: "#8B949E", marginTop: 4 }}>Full control over orders, team accounts, messaging, and TV display</p>
@@ -984,7 +1074,7 @@ function ManagerDashboard({ user, onLogout }) {
           <TAB id="messages" label="MESSAGES"    badge={unreadTotal} />
         </div>
         <ErrBanner msg={dbError} />
-        {activeTab === "orders"   && <><StatsCards orders={orders} /><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={() => setModal("create")} onEdit={o => { setSelected(o); setModal("edit"); }} onDelete={o => { setSelected(o); setModal("delete"); }} /></>}
+        {activeTab === "orders" && <><StatsCards orders={orders} /><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={() => setModal("create")} onEdit={o => { setSelected(o); setModal("edit"); }} onDelete={o => { setSelected(o); setModal("delete"); }} /></>}
         {activeTab === "team"     && <MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={() => setShowAddMech(true)} onDelete={m => setSelectedMech(m)} />}
         {activeTab === "messages" && <MessagingPanel currentUser={user} mechanics={mechanics} />}
       </div>
@@ -1040,7 +1130,8 @@ function MechanicDashboard({ user, onLogout }) {
                       </div>
                       {col.items.length === 0 ? (<div style={{ border: "1px dashed rgba(255,255,255,0.07)", borderRadius: 10, padding: "28px 16px", textAlign: "center", color: "#484f58", fontSize: 13 }}>No orders here</div>)
                         : col.items.map(o => {
-                          const m = STATUS_META[o.status] ?? STATUS_META["Pending"];
+                          const m   = STATUS_META[o.status] ?? STATUS_META["Pending"];
+                          const days = daysOnLot(o.date_received);
                           return (
                             <div key={o.id} className="slide-in" style={{ background: "#1C2333", border: "1px solid rgba(255,255,255,0.06)", borderLeft: `3px solid ${m.color}`, borderRadius: 10, padding: 16, marginBottom: 10, transition: "transform .15s, box-shadow .15s" }} onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 24px rgba(0,0,0,0.35)"; }} onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -1049,14 +1140,19 @@ function MechanicDashboard({ user, onLogout }) {
                               </div>
                               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{o.customer}</div>
                               {/* Vehicle + color */}
-                              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#8B949E", marginBottom: 8 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#8B949E", marginBottom: 6 }}>
                                 <span>{o.year} {o.make} {o.model}</span>
                                 {o.color && <><ColorDot color={o.color} size={10} /><span>{o.color}</span></>}
                               </div>
-                              {/* Date fields */}
+                              {/* Dates + Days on Lot */}
                               {(o.date_received || o.date_assigned) && (
-                                <div style={{ display: "flex", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+                                <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
                                   {o.date_received && <span style={{ fontSize: 11, color: "#6E7681" }}>📥 {fmtDate(o.date_received)}</span>}
+                                  {days !== null && (
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: lotColor(days) }}>
+                                      · {days}d on lot {days >= 30 ? "⚠" : ""}
+                                    </span>
+                                  )}
                                   {o.date_assigned && <span style={{ fontSize: 11, color: "#6E7681" }}>🔧 {fmtDate(o.date_assigned)}</span>}
                                 </div>
                               )}

@@ -783,7 +783,11 @@ function TVPinSettings({ userId }) {
 
   useEffect(() => {
     supabase.from("profiles").select("tv_pin").eq("id", userId).single()
-      .then(({ data }) => { if (data?.tv_pin) setPin(data.tv_pin); setLoaded(true); });
+      .then(({ data, error }) => {
+        if (!error && data?.tv_pin) setPin(data.tv_pin);
+        setLoaded(true); // always show, even if column missing or query fails
+      })
+      .catch(() => setLoaded(true)); // still show on network error
   }, [userId]);
 
   const savePin = async () => {
@@ -805,15 +809,13 @@ function TVPinSettings({ userId }) {
     setTimeout(() => setMsg(""), 3000);
   };
 
-  if (!loaded) return null;
-
   return (
     <div style={{ marginTop:28, background:"#1C2333", border:"1px solid rgba(139,92,246,0.2)", borderRadius:12, padding:"20px 20px 18px" }}>
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
         <div style={{ width:36, height:36, borderRadius:10, background:"rgba(139,92,246,0.12)", border:"1px solid rgba(139,92,246,0.25)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>📺</div>
         <div>
           <div style={{ fontSize:14, fontWeight:700, letterSpacing:"0.04em" }}>TV DISPLAY PIN LOCK</div>
-          <div style={{ fontSize:12, color:"#6E7681", marginTop:1 }}>{pin ? "PIN is set — TV display is locked" : "No PIN set — anyone can navigate away from TV"}</div>
+          <div style={{ fontSize:12, color:"#6E7681", marginTop:1 }}>{!loaded ? "Loading…" : pin ? "PIN is set — TV display is locked" : "No PIN set — anyone can navigate away from TV"}</div>
         </div>
         {pin && <div style={{ marginLeft:"auto", background:"rgba(16,185,129,0.1)", border:"1px solid rgba(16,185,129,0.25)", borderRadius:20, padding:"3px 12px", fontSize:11, fontWeight:700, color:"#10B981" }}>🔒 ACTIVE</div>}
       </div>

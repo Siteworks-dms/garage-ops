@@ -602,7 +602,7 @@ function ManagerDashboard({user,onLogout}){
   useEffect(()=>{setLoading(true);Promise.all([loadOrders(),loadMechanics(),loadUnread()]).finally(()=>setLoading(false));},[]);
   useEffect(()=>{const ch=supabase.channel("mgr-ur").on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`receiver_id=eq.${user.id}`},()=>loadUnread()).subscribe();return()=>supabase.removeChannel(ch);},[]);
 
-  const closeOrder=()=>{setModal(null);setSel(null);setSaving(false);setDeleting(false);};
+  const closeOrder=()=>{setModal(null);setSel(null);setSaving(false);setDeleting(false);setErr("");};
 
   const handleSave=async(form)=>{
     setSaving(true);setErr("");
@@ -636,7 +636,7 @@ function ManagerDashboard({user,onLogout}){
       <TopNav user={user} onLogout={onLogout} unreadCount={unread} onTVOpen={()=>window.open(window.location.origin+"?tv=1","_blank")}/>
       <div className="page-pad" style={{maxWidth:1600,margin:"0 auto"}}>
         <ErrBanner msg={err}/>
-        {tab==="orders"&&<><StatsCards orders={orders}/><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={()=>setModal("create")} onEdit={o=>{setSel(o);setModal("edit");}} onDelete={o=>{setSel(o);setModal("delete");}}/></>}
+        {tab==="orders"&&<><StatsCards orders={orders}/><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={()=>{setSaving(false);setErr("");setModal("create");}} onEdit={o=>{setSaving(false);setErr("");setSel(o);setModal("edit");}} onDelete={o=>{setSel(o);setModal("delete");}}/></>}
         {tab==="team"&&<MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={()=>setShowAdd(true)} onDelete={m=>setSelMech(m)}/>}
         {tab==="messages"&&<MessagingPanel currentUser={user} mechanics={mechanics}/>}
       </div>

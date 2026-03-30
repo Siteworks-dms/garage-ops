@@ -353,7 +353,44 @@ const BLANK={customer:"",make:"Toyota",model:"",year:currentYear,vin:"",color:""
 function OrderModal({mode,order,mechanics,onSave,onClose,saving}){
   const[form,setForm]=useState(mode==="edit"?{...BLANK,...order,mechanic_id:order.mechanic_id??"",color:order.color??"",date_received:order.date_received??"",date_assigned:order.date_assigned??""}: {...BLANK});
   const[errs,setErrs]=useState({});
+  const[decoding,setDecoding]=useState(false);
+  const[decodeMsg,setDecodeMsg]=useState("");
+  const[decodeMsgType,setDecodeMsgType]=useState("success"); // "success"|"error"
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  const decodeVIN=async()=>{
+    const vin=form.vin.trim().toUpperCase();
+    if(vin.length!==17){setDecodeMsg("Enter all 17 VIN characters first.");setDecodeMsgType("error");return;}
+    setDecoding(true);setDecodeMsg("");
+    try{
+      const res=await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`);
+      const data=await res.json();
+      const get=varName=>data.Results?.find(r=>r.Variable===varName)?.Value??"";
+      const make=get("Make");
+      const model=get("Model");
+      const year=get("Model Year");
+      const plant=get("Plant Country");
+      if(!make||make==="0"||make==="null"){setDecodeMsg("VIN not recognised. Check the number and try again.");setDecodeMsgType("error");setDecoding(false);return;}
+      // Match make to our list (case-insensitive)
+      const matchedMake=MAKES.find(m=>m.toLowerCase()===make.toLowerCase())||make;
+      setForm(f=>({
+        ...f,
+        make: MAKES.includes(matchedMake)?matchedMake:f.make,
+        model: model&&model!=="0"&&model!=="null"?model:f.model,
+        year: year&&year!=="0"&&year!=="null"?parseInt(year):f.year,
+      }));
+      const parts=[];
+      if(year&&year!=="0"&&year!=="null")parts.push(year);
+      if(make&&make!=="0"&&make!=="null")parts.push(make);
+      if(model&&model!=="0"&&model!=="null")parts.push(model);
+      if(plant&&plant!=="0"&&plant!=="null")parts.push("Built in "+plant);
+      setDecodeMsg("✓ Decoded: "+parts.join(" · "));
+      setDecodeMsgType("success");
+    }catch{setDecodeMsg("Could not reach NHTSA. Check your internet connection.");setDecodeMsgType("error");}
+    setDecoding(false);
+  };
+
+
   const validate=()=>{const e={};if(!form.customer.trim())e.customer="Required";if(!form.model.trim())e.model="Required";if(!form.vin.trim())e.vin="Required";else if(form.vin.trim().length!==17)e.vin="Must be 17 characters";if(!form.task.trim())e.task="Required";return e;};
   const save=()=>{const e=validate();if(Object.keys(e).length){setErrs(e);return;}onSave({...form,vin:form.vin.toUpperCase().trim(),year:parseInt(form.year),mechanic_id:form.mechanic_id||null,color:form.color||null,date_received:form.date_received||null,date_assigned:form.date_assigned||null});};
   const days=daysOnLot(form.date_received);
@@ -376,7 +413,35 @@ function OrderModal({mode,order,mechanics,onSave,onClose,saving}){
               <div><FieldLabel>Year</FieldLabel><select value={form.year} onChange={e=>set("year",e.target.value)}>{years.map(y=><option key={y}>{y}</option>)}</select></div>
               <div><FieldLabel>Color</FieldLabel><div style={{display:"flex",alignItems:"center",gap:8}}><select value={form.color} onChange={e=>set("color",e.target.value)} style={{flex:1}}><option value="">— Select color —</option>{VEHICLE_COLORS.map(c=><option key={c} value={c}>{c}</option>)}</select>{form.color&&<ColorDot color={form.color} size={22}/>}</div></div>
             </div>
-            <div><FieldLabel required>VIN (17 characters)</FieldLabel><input value={form.vin} onChange={e=>set("vin",e.target.value.toUpperCase())} placeholder="1HGCM82633A123456" maxLength={17} style={{fontFamily:"monospace",fontSize:14,letterSpacing:"0.06em"}}/><div style={{fontSize:11,color:form.vin.length===17?"#10B981":"#6E7681",marginTop:4}}>{form.vin.length}/17 chars</div><FieldErr msg={errs.vin}/></div>
+            <div style={{gridColumn:"1 / -1"}}>
+              <FieldLabel required>VIN (17 characters)</FieldLabel>
+              <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                <div style={{flex:1}}>
+                  <input
+                    value={form.vin}
+                    onChange={e=>{const v=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"");set("vin",v);setDecodeMsg("");}}
+                    placeholder="1HGCM82633A123456"
+                    maxLength={17}
+                    style={{fontFamily:"monospace",fontSize:14,letterSpacing:"0.08em"}}
+                  />
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:4}}>
+                    <span style={{fontSize:11,color:form.vin.length===17?"#10B981":"#6E7681"}}>{form.vin.length}/17 chars</span>
+                    {decodeMsg&&<span style={{fontSize:12,color:decodeMsgType==="success"?"#10B981":"#F87171",fontWeight:600}}>{decodeMsg}</span>}
+                  </div>
+                  <FieldErr msg={errs.vin}/>
+                </div>
+                <button
+                  type="button"
+                  onClick={decodeVIN}
+                  disabled={decoding||form.vin.length!==17}
+                  style={{flexShrink:0,background:form.vin.length===17?"rgba(59,130,246,0.15)":"rgba(255,255,255,0.04)",border:`1px solid ${form.vin.length===17?"rgba(59,130,246,0.4)":"rgba(255,255,255,0.08)"}`,color:form.vin.length===17?"#3B82F6":"#555d65",borderRadius:8,padding:"10px 14px",fontSize:13,fontWeight:700,cursor:decoding||form.vin.length!==17?"not-allowed":"pointer",fontFamily:"'Rajdhani',sans-serif",minHeight:44,display:"flex",alignItems:"center",gap:6,transition:"all .15s",opacity:form.vin.length!==17?.4:1,touchAction:"manipulation",whiteSpace:"nowrap"}}
+                >
+                  {decoding
+                    ? <><div style={{width:14,height:14,border:"2px solid rgba(59,130,246,0.3)",borderTop:"2px solid #3B82F6",borderRadius:"50%",animation:"spin .7s linear infinite"}}/>DECODING…</>
+                    : <>🔍 DECODE VIN</>}
+                </button>
+              </div>
+            </div>
             <div style={{fontSize:10,fontWeight:700,color:"#484f58",letterSpacing:"0.12em",marginTop:4}}>DATES</div>
             <div className="modal-grid" style={{display:"grid",gap:12}}>
               <div><FieldLabel>Date Received in Inventory</FieldLabel><input type="date" value={form.date_received} onChange={e=>set("date_received",e.target.value)}/></div>

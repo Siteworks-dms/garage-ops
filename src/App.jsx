@@ -1,11 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabaseClient";
-import { createClient } from "@supabase/supabase-js";
 
-const authClient = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
 
 const STATUS_OPTIONS = ["Pending", "In Progress", "Completed"];
 const STATUS_META = {
@@ -433,18 +428,27 @@ function AddMechanicModal({onClose,onCreated}){
   const create=async()=>{
     const e=validate();if(Object.keys(e).length){setErrs(e);return;}
     setSaving(true);setApiErr("");setSuccess("");
-    const uname=form.username.toLowerCase().trim();
-    const authEmail=usernameToEmail(uname);
-    // Check username not already taken
-    const{data:ex}=await supabase.from("profiles").select("id").eq("username",uname);
-    if(ex&&ex.length>0){setApiErr("That username is already taken.");setSaving(false);return;}
-    const{data,error:se}=await authClient.auth.signUp({email:authEmail,password:form.password});
-    if(se){setApiErr(se.message);setSaving(false);return;}
-    const newId=data.user?.id;if(!newId){setApiErr("Account creation failed.");setSaving(false);return;}
-    await authClient.auth.signOut();
-    const{error:pe}=await supabase.from("profiles").insert({id:newId,full_name:form.name.trim(),initials:getInitials(form.name),role:"mechanic",username:uname,auth_email:authEmail});
-    if(pe){setApiErr(pe.message);setSaving(false);return;}
-    setSuccess(`Done! ${form.name} can log in with @${uname}.`);setSaving(false);onCreated();setTimeout(()=>{setSuccess("");onClose();},3000);
+    try{
+      const uname=form.username.toLowerCase().trim();
+      const authEmail=usernameToEmail(uname);
+      // Check username not already taken
+      const{data:ex}=await supabase.from("profiles").select("id").eq("username",uname);
+      if(ex&&ex.length>0){setApiErr("That username is already taken.");setSaving(false);return;}
+      // Save manager session before signing up new user
+      const{data:{session:managerSession}}=await supabase.auth.getSession();
+      // Sign up the mechanic using the same client
+      const{data,error:se}=await supabase.auth.signUp({email:authEmail,password:form.password});
+      if(se){setApiErr(se.message);setSaving(false);return;}
+      const newId=data.user?.id;if(!newId){setApiErr("Account creation failed.");setSaving(false);return;}
+      // Sign out the newly created mechanic account
+      await supabase.auth.signOut();
+      // Restore the manager's session
+      if(managerSession){await supabase.auth.setSession({access_token:managerSession.access_token,refresh_token:managerSession.refresh_token});}
+      // Insert profile record
+      const{error:pe}=await supabase.from("profiles").insert({id:newId,full_name:form.name.trim(),initials:getInitials(form.name),role:"mechanic",username:uname,auth_email:authEmail});
+      if(pe){setApiErr(pe.message);setSaving(false);return;}
+      setSuccess(`Done! ${form.name} can log in with @${uname}.`);setSaving(false);onCreated();setTimeout(()=>{setSuccess("");onClose();},3000);
+    }catch(err){setApiErr(err?.message??"Unexpected error. Please try again.");setSaving(false);}
   };
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(3px)"}}>

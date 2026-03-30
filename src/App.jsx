@@ -133,8 +133,122 @@ function TVMechanicCard({mechanic,orders}){
   );
 }
 
+
+// ── TV PIN Lock ────────────────────────────────────────────────────────────────
+
+function TVPinPrompt({ onUnlock }) {
+  const [pin, setPin]       = useState("");
+  const [error, setError]   = useState("");
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const attempt = async () => {
+    if (pin.length < 4) return;
+    setLoading(true); setError("");
+    const { data } = await supabase.from("profiles").select("tv_pin").eq("role", "manager").single();
+    if (!data?.tv_pin) {
+      // No PIN set — allow through
+      onUnlock(); return;
+    }
+    if (pin === data.tv_pin) {
+      onUnlock();
+    } else {
+      setError("Incorrect PIN. Try again.");
+      setPin(""); setLoading(false);
+      setTimeout(() => setError(""), 2500);
+    }
+    setLoading(false);
+  };
+
+  const handleKey = e => { if (e.key === "Enter") attempt(); };
+
+  const pad = [1,2,3,4,5,6,7,8,9,null,0,"⌫"];
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(13,17,23,0.97)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, backdropFilter:"blur(8px)" }}>
+      <div style={{ background:"#161B22", border:"1px solid rgba(245,158,11,0.25)", borderRadius:20, padding:"36px 32px 32px", width:"100%", maxWidth:340, textAlign:"center", boxShadow:"0 32px 80px rgba(0,0,0,0.6)" }}>
+        <div style={{ width:60, height:60, borderRadius:"50%", background:"rgba(245,158,11,0.1)", border:"2px solid rgba(245,158,11,0.3)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 20px", fontSize:26 }}>🔒</div>
+        <div style={{ fontSize:20, fontWeight:700, letterSpacing:"0.06em", marginBottom:6 }}>MANAGER ACCESS</div>
+        <div style={{ fontSize:13, color:"#6E7681", marginBottom:24 }}>Enter PIN to exit TV display</div>
+
+        {/* PIN dots */}
+        <div style={{ display:"flex", justifyContent:"center", gap:12, marginBottom:24 }}>
+          {[0,1,2,3].map(i => (
+            <div key={i} style={{ width:16, height:16, borderRadius:"50%", background: i < pin.length ? "#F59E0B" : "rgba(255,255,255,0.1)", border:"1.5px solid rgba(245,158,11,0.3)", transition:"background .15s" }}/>
+          ))}
+        </div>
+
+        {/* Numpad */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:16 }}>
+          {pad.map((k, i) => k === null ? (
+            <div key={i}/>
+          ) : (
+            <button key={i}
+              onClick={() => {
+                if (k === "⌫") { setPin(p => p.slice(0,-1)); setError(""); }
+                else if (pin.length < 4) { const np = pin + k; setPin(np); if (np.length === 4) setTimeout(() => attempt(), 100); }
+              }}
+              style={{ background: k === "⌫" ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)", border: k === "⌫" ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(255,255,255,0.08)", borderRadius:12, padding:"16px 8px", fontSize: k === "⌫" ? 18 : 20, fontWeight:700, color: k === "⌫" ? "#EF4444" : "#E6EDF3", cursor:"pointer", fontFamily:"'Rajdhani',sans-serif", touchAction:"manipulation", transition:"background .1s" }}
+              onMouseEnter={e => e.currentTarget.style.background = k === "⌫" ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.1)"}
+              onMouseLeave={e => e.currentTarget.style.background = k === "⌫" ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)"}
+            >{k}</button>
+          ))}
+        </div>
+
+        {error && <div style={{ fontSize:13, color:"#F87171", fontWeight:600, marginBottom:8 }}>{error}</div>}
+        {loading && <div style={{ fontSize:12, color:"#6E7681" }}>Checking…</div>}
+        <div style={{ fontSize:11, color:"#484f58", marginTop:8 }}>Contact your manager if you forgot the PIN</div>
+      </div>
+    </div>
+  );
+}
+
 function TVDisplay(){
   const[mechanics,setMechanics]=useState([]);const[orders,setOrders]=useState([]);const[loading,setLoading]=useState(true);const[lastUpdate,setLastUpdate]=useState(new Date());
+  const[showPinPrompt,setShowPinPrompt]=useState(false);
+  const[pinUnlocked,setPinUnlocked]=useState(false);
+
+  // Block all navigation attempts on TV
+  useEffect(()=>{
+    // Block back button
+    window.history.pushState(null,"",window.location.href);
+    const onPop=()=>{
+      window.history.pushState(null,"",window.location.href);
+      setShowPinPrompt(true);
+    };
+    window.addEventListener("popstate",onPop);
+
+    // Block keyboard shortcuts that navigate away (Alt+Left, F5, etc.)
+    const onKey=e=>{
+      const blocked=
+        (e.altKey&&e.key==="ArrowLeft")||   // back
+        (e.altKey&&e.key==="ArrowRight")||  // forward
+        (e.key==="F5")||                    // refresh
+        (e.ctrlKey&&e.key==="r")||          // ctrl+R
+        (e.metaKey&&e.key==="r");           // cmd+R
+      if(blocked){e.preventDefault();setShowPinPrompt(true);}
+    };
+    window.addEventListener("keydown",onKey);
+
+    // Block right-click context menu
+    const onCtx=e=>e.preventDefault();
+    window.addEventListener("contextmenu",onCtx);
+
+    return()=>{
+      window.removeEventListener("popstate",onPop);
+      window.removeEventListener("keydown",onKey);
+      window.removeEventListener("contextmenu",onCtx);
+    };
+  },[]);
+
+  // After PIN unlock — redirect to main app
+  const handleUnlock=()=>{
+    setPinUnlocked(true);
+    setShowPinPrompt(false);
+    window.location.href=window.location.origin;
+  };
   const load=async()=>{const[{data:m},{data:o}]=await Promise.all([supabase.from("profiles").select("*").eq("role","mechanic").order("full_name"),supabase.from("work_orders").select("*").neq("status","Completed").order("created_at",{ascending:false})]);setMechanics(m??[]);setOrders(o??[]);setLastUpdate(new Date());setLoading(false);};
   useEffect(()=>{load();const i=setInterval(load,60000);return()=>clearInterval(i);},[]);
   useEffect(()=>{const ch=supabase.channel("tv-rt").on("postgres_changes",{event:"*",schema:"public",table:"work_orders"},load).on("postgres_changes",{event:"*",schema:"public",table:"profiles"},load).subscribe();return()=>supabase.removeChannel(ch);},[]);
@@ -144,6 +258,7 @@ function TVDisplay(){
   if(loading)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0D1117",flexDirection:"column",gap:20}}><div style={{width:48,height:48,border:"3px solid rgba(245,158,11,0.2)",borderTop:"3px solid #F59E0B",borderRadius:"50%",animation:"spin .7s linear infinite"}}/><div style={{color:"#6E7681",fontSize:18}}>LOADING…</div></div>;
   return(
     <div style={{minHeight:"100vh",background:"#0D1117",display:"flex",flexDirection:"column"}}>
+      {showPinPrompt&&<TVPinPrompt onUnlock={handleUnlock}/>}
       <div style={{padding:"16px 28px",background:"#161B22",borderBottom:"1px solid rgba(255,255,255,0.07)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:14}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"center",width:48,height:48,background:"rgba(245,158,11,0.1)",border:"1.5px solid rgba(245,158,11,0.3)",borderRadius:12}}>
@@ -654,6 +769,96 @@ function WorkOrderTable({orders,mechanics,onEdit,onDelete,onCreate,loading}){
 
 // ── Manager Dashboard ──────────────────────────────────────────────────────────
 
+
+// ── TV PIN Settings ────────────────────────────────────────────────────────────
+
+function TVPinSettings({ userId }) {
+  const [pin,    setPin]    = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirm,setConfirm]= useState("");
+  const [saving, setSaving] = useState(false);
+  const [msg,    setMsg]    = useState("");
+  const [msgType,setMsgType]= useState("success");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    supabase.from("profiles").select("tv_pin").eq("id", userId).single()
+      .then(({ data }) => { if (data?.tv_pin) setPin(data.tv_pin); setLoaded(true); });
+  }, [userId]);
+
+  const savePin = async () => {
+    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) { setMsg("PIN must be exactly 4 digits."); setMsgType("error"); return; }
+    if (newPin !== confirm) { setMsg("PINs do not match."); setMsgType("error"); return; }
+    setSaving(true); setMsg("");
+    const { error } = await supabase.from("profiles").update({ tv_pin: newPin }).eq("id", userId);
+    if (error) { setMsg(error.message); setMsgType("error"); }
+    else { setPin(newPin); setNewPin(""); setConfirm(""); setMsg("✓ TV PIN updated successfully."); setMsgType("success"); }
+    setSaving(false);
+    setTimeout(() => setMsg(""), 3000);
+  };
+
+  const clearPin = async () => {
+    setSaving(true);
+    await supabase.from("profiles").update({ tv_pin: null }).eq("id", userId);
+    setPin(""); setNewPin(""); setConfirm(""); setMsg("PIN removed — TV display is now unlocked."); setMsgType("success");
+    setSaving(false);
+    setTimeout(() => setMsg(""), 3000);
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <div style={{ marginTop:28, background:"#1C2333", border:"1px solid rgba(139,92,246,0.2)", borderRadius:12, padding:"20px 20px 18px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+        <div style={{ width:36, height:36, borderRadius:10, background:"rgba(139,92,246,0.12)", border:"1px solid rgba(139,92,246,0.25)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>📺</div>
+        <div>
+          <div style={{ fontSize:14, fontWeight:700, letterSpacing:"0.04em" }}>TV DISPLAY PIN LOCK</div>
+          <div style={{ fontSize:12, color:"#6E7681", marginTop:1 }}>{pin ? "PIN is set — TV display is locked" : "No PIN set — anyone can navigate away from TV"}</div>
+        </div>
+        {pin && <div style={{ marginLeft:"auto", background:"rgba(16,185,129,0.1)", border:"1px solid rgba(16,185,129,0.25)", borderRadius:20, padding:"3px 12px", fontSize:11, fontWeight:700, color:"#10B981" }}>🔒 ACTIVE</div>}
+      </div>
+
+      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+        <div style={{ display:"flex", gap:10 }}>
+          <div style={{ flex:1 }}>
+            <label style={{ display:"block", fontSize:11, fontWeight:700, color:"#8B949E", letterSpacing:"0.09em", marginBottom:5 }}>NEW 4-DIGIT PIN</label>
+            <input
+              type="password" inputMode="numeric" maxLength={4}
+              value={newPin}
+              onChange={e => setNewPin(e.target.value.replace(/\D/g,"").slice(0,4))}
+              placeholder="• • • •"
+              style={{ fontFamily:"monospace", letterSpacing:"0.3em", textAlign:"center", fontSize:18 }}
+            />
+          </div>
+          <div style={{ flex:1 }}>
+            <label style={{ display:"block", fontSize:11, fontWeight:700, color:"#8B949E", letterSpacing:"0.09em", marginBottom:5 }}>CONFIRM PIN</label>
+            <input
+              type="password" inputMode="numeric" maxLength={4}
+              value={confirm}
+              onChange={e => setConfirm(e.target.value.replace(/\D/g,"").slice(0,4))}
+              placeholder="• • • •"
+              style={{ fontFamily:"monospace", letterSpacing:"0.3em", textAlign:"center", fontSize:18 }}
+            />
+          </div>
+        </div>
+
+        {msg && <div style={{ fontSize:12, color:msgType==="success"?"#34D399":"#F87171", fontWeight:600 }}>{msg}</div>}
+
+        <div style={{ display:"flex", gap:8 }}>
+          <Btn variant="purple" onClick={savePin} disabled={saving||newPin.length!==4||confirm.length!==4} style={{ flex:2, padding:"9px" }}>
+            {saving ? <><Spinner size={13}/>SAVING…</> : pin ? "UPDATE PIN" : "SET PIN"}
+          </Btn>
+          {pin && <Btn variant="red" onClick={clearPin} disabled={saving} style={{ flex:1, padding:"9px" }}>REMOVE PIN</Btn>}
+        </div>
+
+        <div style={{ fontSize:11, color:"#484f58", lineHeight:1.6 }}>
+          When set, anyone trying to navigate away from the TV display will see a PIN prompt. Only the manager knows the PIN.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ManagerDashboard({user,onLogout}){
   const[orders,setOrders]=useState([]);const[mechanics,setMechanics]=useState([]);const[loading,setLoading]=useState(true);
   const[tab,setTab]=useState("orders");const[modal,setModal]=useState(null);const[sel,setSel]=useState(null);
@@ -702,7 +907,7 @@ function ManagerDashboard({user,onLogout}){
       <div className="page-pad" style={{maxWidth:1600,margin:"0 auto"}}>
         <ErrBanner msg={err}/>
         {tab==="orders"&&<><StatsCards orders={orders}/><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={()=>{setSaving(false);setErr("");setModal("create");}} onEdit={o=>{setSaving(false);setErr("");setSel(o);setModal("edit");}} onDelete={o=>{setSel(o);setModal("delete");}}/></>}
-        {tab==="team"&&<MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={()=>setShowAdd(true)} onDelete={m=>setSelMech(m)}/>}
+        {tab==="team"&&<><MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={()=>setShowAdd(true)} onDelete={m=>setSelMech(m)}/><TVPinSettings userId={user.id}/></>}
         {tab==="messages"&&<MessagingPanel currentUser={user} mechanics={mechanics}/>}
       </div>
       {/* Bottom tab bar */}

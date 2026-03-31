@@ -84,7 +84,7 @@ function lotColor(d){if(d===null)return"#6E7681";if(d>=30)return"#EF4444";if(d>=
 function lotLabel(d){if(d===null)return"";if(d>=30)return"⚠ Over 30 days";if(d>=14)return"Getting long";return"Recent";}
 
 // Username helpers
-function usernameToEmail(u){return`${u.toLowerCase().trim()}@garageops.internal.com`;}
+function usernameToEmail(u){return`garageops.${u.toLowerCase().trim()}@gmail.com`;}
 function isValidUsername(u){return/^[a-zA-Z0-9_-]{3,20}$/.test(u);}
 
 const COLOR_MAP={Black:"#1a1a1a",White:"#f0f0f0",Silver:"#C0C0C0",Gray:"#808080",Red:"#DC2626",Blue:"#2563EB",Green:"#16A34A",Brown:"#92400E",Beige:"#D4B896",Orange:"#EA580C",Yellow:"#CA8A04",Gold:"#B7960C",Purple:"#7C3AED",Maroon:"#881337",Navy:"#1E3A5F",Champagne:"#C9A96E",Other:"#6E7681"};

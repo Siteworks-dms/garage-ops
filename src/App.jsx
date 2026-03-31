@@ -633,23 +633,35 @@ function AddMechanicModal({onClose,onCreated}){
     try{
       const uname=form.username.toLowerCase().trim();
       const authEmail=usernameToEmail(uname);
+
       // Check username not already taken
       const{data:ex}=await supabase.from("profiles").select("id").eq("username",uname);
       if(ex&&ex.length>0){setApiErr("That username is already taken.");setSaving(false);return;}
-      // Save manager session before signing up new user
-      const{data:{session:managerSession}}=await supabase.auth.getSession();
-      // Sign up the mechanic using the same client
-      const{data,error:se}=await supabase.auth.signUp({email:authEmail,password:form.password});
-      if(se){setApiErr(se.message);setSaving(false);return;}
-      const newId=data.user?.id;if(!newId){setApiErr("Account creation failed.");setSaving(false);return;}
-      // Sign out the newly created mechanic account
-      await supabase.auth.signOut();
-      // Restore the manager's session
-      if(managerSession){await supabase.auth.setSession({access_token:managerSession.access_token,refresh_token:managerSession.refresh_token});}
-      // Insert profile record
-      const{error:pe}=await supabase.from("profiles").insert({id:newId,full_name:form.name.trim(),initials:getInitials(form.name),role:"mechanic",username:uname,auth_email:authEmail,color:form.color||null});
+
+      // Call Supabase signup REST API directly via fetch — does NOT touch the
+      // current supabase client session, so the manager stays logged in
+      const supabaseUrl=import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey=import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const signupRes=await fetch(`${supabaseUrl}/auth/v1/signup`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json","apikey":supabaseAnonKey,"Authorization":`Bearer ${supabaseAnonKey}`},
+        body:JSON.stringify({email:authEmail,password:form.password}),
+      });
+      const signupData=await signupRes.json();
+      if(!signupRes.ok){setApiErr(signupData.msg||signupData.error_description||"Failed to create account.");setSaving(false);return;}
+      const newId=signupData.user?.id||signupData.id;
+      if(!newId){setApiErr("Account created but ID not returned. Try again.");setSaving(false);return;}
+
+      // Insert profile — manager session is still intact
+      const{error:pe}=await supabase.from("profiles").insert({
+        id:newId,full_name:form.name.trim(),initials:getInitials(form.name),
+        role:"mechanic",username:uname,auth_email:authEmail,color:form.color||null
+      });
       if(pe){setApiErr(pe.message);setSaving(false);return;}
-      setSuccess(`Done! ${form.name} can log in with @${uname}.`);setSaving(false);onCreated();setTimeout(()=>{setSuccess("");onClose();},3000);
+
+      setSuccess(`Done! ${form.name} can log in with @${uname}.`);
+      setSaving(false);onCreated();
+      setTimeout(()=>{setSuccess("");onClose();},3000);
     }catch(err){setApiErr(err?.message??"Unexpected error. Please try again.");setSaving(false);}
   };
   return(

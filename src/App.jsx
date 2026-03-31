@@ -11,6 +11,28 @@ const STATUS_META = {
 const VEHICLE_COLORS = ["Black","White","Silver","Gray","Red","Blue","Green","Brown","Beige","Orange","Yellow","Gold","Purple","Maroon","Navy","Champagne","Other"];
 const MAKES = ["Acura","Audi","BMW","Buick","Cadillac","Chevrolet","Chrysler","Dodge","Ford","Genesis","GMC","Honda","Hyundai","Infiniti","Jeep","Kia","Lexus","Lincoln","Mazda","Mercedes-Benz","Mitsubishi","Nissan","Ram","Subaru","Tesla","Toyota","Volkswagen","Volvo"];
 
+const MECHANIC_COLORS = [
+  { label:"Ocean Blue",   value:"#3B82F6" },
+  { label:"Purple",       value:"#8B5CF6" },
+  { label:"Emerald",      value:"#10B981" },
+  { label:"Amber",        value:"#F59E0B" },
+  { label:"Red",          value:"#EF4444" },
+  { label:"Pink",         value:"#EC4899" },
+  { label:"Cyan",         value:"#06B6D4" },
+  { label:"Orange",       value:"#F97316" },
+  { label:"Lime",         value:"#84CC16" },
+  { label:"Indigo",       value:"#6366F1" },
+  { label:"Rose",         value:"#F43F5E" },
+  { label:"Teal",         value:"#14B8A6" },
+];
+
+// Get a mechanic's color — use stored color or fall back to hash-based palette
+function getMechColor(mechanic) {
+  if (mechanic?.color) return mechanic.color;
+  const palette = MECHANIC_COLORS.map(c => c.value);
+  return palette[(mechanic?.full_name?.charCodeAt(0) || 0) % palette.length];
+}
+
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -75,7 +97,7 @@ function Spinner({size=20}){return<div style={{width:size,height:size,border:"2p
 
 function StatusBadge({status,large=false}){const m=STATUS_META[status]??STATUS_META["Pending"];return<span style={{background:m.bg,color:m.color,border:`1px solid ${m.border}`,borderRadius:20,padding:large?"5px 14px":"3px 11px",fontSize:large?14:12,fontWeight:700,letterSpacing:"0.03em",whiteSpace:"nowrap",fontFamily:"'Rajdhani',sans-serif",display:"inline-flex",alignItems:"center",gap:5}}><span style={{width:large?8:6,height:large?8:6,borderRadius:"50%",background:m.color,flexShrink:0}}/>{status}</span>;}
 
-function Avatar({name="",size=36}){const i=getInitials(name),p=["#3B82F6","#8B5CF6","#10B981","#F59E0B","#EF4444","#EC4899","#06B6D4"],c=p[(name.charCodeAt(0)||0)%p.length];return<div style={{width:size,height:size,borderRadius:"50%",background:c+"22",border:`1.5px solid ${c}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:Math.round(size*.36),fontWeight:700,color:c,flexShrink:0,letterSpacing:"0.05em",userSelect:"none"}}>{i}</div>;}
+function Avatar({name="",size=36,color=null}){const i=getInitials(name),p=["#3B82F6","#8B5CF6","#10B981","#F59E0B","#EF4444","#EC4899","#06B6D4"],c=color||(p[(name.charCodeAt(0)||0)%p.length]);return<div style={{width:size,height:size,borderRadius:"50%",background:c+"22",border:`1.5px solid ${c}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:Math.round(size*.36),fontWeight:700,color:c,flexShrink:0,letterSpacing:"0.05em",userSelect:"none"}}>{i}</div>;}
 
 function Btn({children,variant="ghost",onClick,disabled,style:sx={}}){const V={primary:{background:"#F59E0B",color:"#0D1117",border:"none"},danger:{background:"#EF4444",color:"#fff",border:"none"},blue:{background:"rgba(59,130,246,0.12)",color:"#3B82F6",border:"1px solid rgba(59,130,246,0.3)"},red:{background:"rgba(239,68,68,0.12)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.3)"},ghost:{background:"transparent",color:"#8B949E",border:"1px solid rgba(255,255,255,0.1)"},green:{background:"rgba(16,185,129,0.12)",color:"#10B981",border:"1px solid rgba(16,185,129,0.3)"},purple:{background:"rgba(139,92,246,0.12)",color:"#8B5CF6",border:"1px solid rgba(139,92,246,0.3)"}};return<button onClick={onClick} disabled={disabled} style={{...V[variant],borderRadius:8,padding:"10px 18px",fontSize:14,fontWeight:700,cursor:disabled?"not-allowed":"pointer",opacity:disabled?.5:1,letterSpacing:"0.06em",transition:"opacity .15s,filter .15s",fontFamily:"'Rajdhani',sans-serif",whiteSpace:"nowrap",minHeight:44,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,touchAction:"manipulation",...sx}} onMouseEnter={e=>{if(!disabled)e.currentTarget.style.filter="brightness(1.1)";}} onMouseLeave={e=>{e.currentTarget.style.filter="none";}}>{children}</button>;}
 
@@ -91,7 +113,7 @@ function TVClock(){const[t,setT]=useState(new Date());useEffect(()=>{const x=set
 function TVStatusPill({status}){const m={Pending:{color:"#F59E0B",bg:"rgba(245,158,11,0.15)"},"In Progress":{color:"#3B82F6",bg:"rgba(59,130,246,0.15)"},Completed:{color:"#10B981",bg:"rgba(16,185,129,0.15)"}}[status]??{color:"#F59E0B",bg:"rgba(245,158,11,0.15)"};return<span style={{display:"inline-flex",alignItems:"center",gap:6,background:m.bg,color:m.color,borderRadius:20,padding:"4px 12px",fontSize:13,fontWeight:700,whiteSpace:"nowrap"}}><span style={{width:7,height:7,borderRadius:"50%",background:m.color,display:"inline-block",...(status==="In Progress"?{animation:"pulse 1.5s ease-in-out infinite"}:{})}}/>{status}</span>;}
 
 function TVMechanicCard({mechanic,orders}){
-  const p=["#3B82F6","#8B5CF6","#10B981","#F59E0B","#EF4444","#EC4899","#06B6D4"],c=p[(mechanic.full_name.charCodeAt(0)||0)%p.length];
+  const c=getMechColor(mechanic);
   const active=orders.filter(o=>o.status==="In Progress"),pending=orders.filter(o=>o.status==="Pending"),done=orders.filter(o=>o.status==="Completed");
   return(
     <div style={{background:"#161B22",border:`1px solid ${c}30`,borderTop:`3px solid ${c}`,borderRadius:14,overflow:"hidden",display:"flex",flexDirection:"column"}}>
@@ -426,7 +448,7 @@ function MessagingPanel({currentUser,mechanics}){
         <div style={{flex:1,overflowY:"auto"}}>
           {items.map(m=>{const u=isM?uc(m.id):tu,ia=sel?.id===m.id;return(
             <div key={m.id} onClick={()=>pick(m)} style={{padding:"14px 16px",cursor:"pointer",background:ia?"rgba(245,158,11,0.07)":"transparent",borderLeft:ia?"3px solid #F59E0B":"3px solid transparent",display:"flex",alignItems:"center",gap:12,transition:"background .1s",minHeight:60}}>
-              <div style={{position:"relative"}}><Avatar name={m.full_name} size={40}/>{u>0&&<div style={{position:"absolute",top:-4,right:-4,background:"#EF4444",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#fff",border:"2px solid #161B22"}}>{u>9?"9+":u}</div>}</div>
+              <div style={{position:"relative"}}><Avatar name={m.full_name} size={40} color={m.color||null}/>{u>0&&<div style={{position:"absolute",top:-4,right:-4,background:"#EF4444",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#fff",border:"2px solid #161B22"}}>{u>9?"9+":u}</div>}</div>
               <div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.full_name}</div>{m.username&&<div style={{fontSize:12,color:"#6E7681",fontFamily:"monospace"}}>@{m.username}</div>}{u>0&&<div style={{fontSize:11,color:"#EF4444",marginTop:1}}>{u} unread</div>}</div>
               <div style={{color:"#555d65",fontSize:18}}>›</div>
             </div>
@@ -602,7 +624,7 @@ function ConfirmModal({title,body,confirmLabel,confirmVariant="danger",onConfirm
 // ── Add Mechanic Modal (username-based) ────────────────────────────────────────
 
 function AddMechanicModal({onClose,onCreated}){
-  const[form,setForm]=useState({name:"",username:"",password:"",confirm:""});const[errs,setErrs]=useState({});const[saving,setSaving]=useState(false);const[apiErr,setApiErr]=useState("");const[success,setSuccess]=useState("");
+  const[form,setForm]=useState({name:"",username:"",password:"",confirm:"",color:MECHANIC_COLORS[0].value});const[errs,setErrs]=useState({});const[saving,setSaving]=useState(false);const[apiErr,setApiErr]=useState("");const[success,setSuccess]=useState("");
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const validate=()=>{const e={};if(!form.name.trim())e.name="Required";if(!form.username.trim())e.username="Required";else if(!isValidUsername(form.username))e.username="3–20 chars: letters, numbers, _ or -";if(!form.password)e.password="Required";else if(form.password.length<6)e.password="Min 6 characters";if(form.confirm!==form.password)e.confirm="Passwords do not match";return e;};
   const create=async()=>{
@@ -625,7 +647,7 @@ function AddMechanicModal({onClose,onCreated}){
       // Restore the manager's session
       if(managerSession){await supabase.auth.setSession({access_token:managerSession.access_token,refresh_token:managerSession.refresh_token});}
       // Insert profile record
-      const{error:pe}=await supabase.from("profiles").insert({id:newId,full_name:form.name.trim(),initials:getInitials(form.name),role:"mechanic",username:uname,auth_email:authEmail});
+      const{error:pe}=await supabase.from("profiles").insert({id:newId,full_name:form.name.trim(),initials:getInitials(form.name),role:"mechanic",username:uname,auth_email:authEmail,color:form.color||null});
       if(pe){setApiErr(pe.message);setSaving(false);return;}
       setSuccess(`Done! ${form.name} can log in with @${uname}.`);setSaving(false);onCreated();setTimeout(()=>{setSuccess("");onClose();},3000);
     }catch(err){setApiErr(err?.message??"Unexpected error. Please try again.");setSaving(false);}
@@ -648,6 +670,19 @@ function AddMechanicModal({onClose,onCreated}){
           </div>
           <div><FieldLabel required>Password</FieldLabel><input type="password" value={form.password} onChange={e=>set("password",e.target.value)} placeholder="Minimum 6 characters"/><FieldErr msg={errs.password}/></div>
           <div><FieldLabel required>Confirm Password</FieldLabel><input type="password" value={form.confirm} onChange={e=>set("confirm",e.target.value)} placeholder="Re-enter password"/><FieldErr msg={errs.confirm}/></div>
+          <div>
+            <FieldLabel required>Mechanic Color</FieldLabel>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:2}}>
+              {MECHANIC_COLORS.map(c=>(
+                <button key={c.value} type="button" title={c.label} onClick={()=>set("color",c.value)}
+                  style={{width:36,height:36,borderRadius:"50%",background:c.value,border:form.color===c.value?`3px solid #fff`:`2px solid ${c.value}55`,cursor:"pointer",flexShrink:0,transition:"transform .12s,border .12s",transform:form.color===c.value?"scale(1.2)":"scale(1)",boxShadow:form.color===c.value?`0 0 0 2px #0D1117, 0 0 0 4px ${c.value}`:"none"}}
+                />
+              ))}
+            </div>
+            <div style={{fontSize:11,color:"#6E7681",marginTop:6}}>
+              Selected: <span style={{color:form.color,fontWeight:700}}>{MECHANIC_COLORS.find(c=>c.value===form.color)?.label||"—"}</span>
+            </div>
+          </div>
           <ErrBanner msg={apiErr}/><SuccessBanner msg={success}/>
           <div style={{background:"rgba(245,158,11,0.05)",border:"1px solid rgba(245,158,11,0.15)",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#8B949E",lineHeight:1.6}}>Login: <strong style={{color:"#F59E0B"}}>@{form.username||"username"}</strong> + password. No email required.</div>
         </div>
@@ -662,7 +697,7 @@ function AddMechanicModal({onClose,onCreated}){
 
 // ── Mechanics Panel ────────────────────────────────────────────────────────────
 
-function MechanicsPanel({mechanics,orders,onAdd,onDelete,loading}){
+function MechanicsPanel({mechanics,orders,onAdd,onDelete,onColorChange,loading}){
   const cnt=(id,s)=>orders.filter(o=>o.mechanic_id===id&&(!s||o.status===s)).length;
   return(
     <div>
@@ -670,17 +705,32 @@ function MechanicsPanel({mechanics,orders,onAdd,onDelete,loading}){
       {loading?<div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:48,gap:12,color:"#8B949E"}}><Spinner/>Loading…</div>:mechanics.length===0?<div style={{textAlign:"center",padding:"48px 20px",background:"#1C2333",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,color:"#6E7681"}}><div style={{fontSize:36,marginBottom:12}}>👷</div><div style={{fontSize:17,fontWeight:600,marginBottom:8}}>No Mechanics Yet</div><div style={{marginTop:16}}><Btn variant="green" onClick={onAdd}>+ ADD MECHANIC</Btn></div></div>:(
         <div className="mechanic-grid" style={{display:"grid",gap:12}}>
           {mechanics.map(m=>{const t=cnt(m.id),p=cnt(m.id,"Pending"),a=cnt(m.id,"In Progress"),d=cnt(m.id,"Completed");return(
-            <div key={m.id} style={{background:"#1C2333",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"16px 16px 14px"}}>
+            <div key={m.id} style={{background:"#1C2333",border:`1px solid ${m.color?(m.color+"33"):"rgba(255,255,255,0.06)"}`,borderTop:`3px solid ${m.color||"rgba(255,255,255,0.1)"}`,borderRadius:12,padding:"16px 16px 14px"}}>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
-                <Avatar name={m.full_name} size={42}/>
+                <Avatar name={m.full_name} size={42} color={m.color||null}/>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:15,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.full_name}</div>
-                  <div style={{fontSize:13,color:"#F59E0B",fontFamily:"monospace",marginTop:1}}>@{m.username??"—"}</div>
+                  <div style={{fontSize:13,color:m.color||"#F59E0B",fontFamily:"monospace",marginTop:1}}>@{m.username??"—"}</div>
                 </div>
-                <div style={{background:"rgba(59,130,246,0.1)",color:"#3B82F6",border:"1px solid rgba(59,130,246,0.25)",borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,flexShrink:0}}>MECH</div>
+                <div style={{background:m.color?(m.color+"22"):"rgba(59,130,246,0.1)",color:m.color||"#3B82F6",border:`1px solid ${m.color?(m.color+"55"):"rgba(59,130,246,0.25)"}`,borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,flexShrink:0}}>MECH</div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
                 {[{l:"Total",v:t,c:"#E6EDF3"},{l:"Pend.",v:p,c:"#F59E0B"},{l:"Active",v:a,c:"#3B82F6"},{l:"Done",v:d,c:"#10B981"}].map(s=><div key={s.l} style={{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 4px",textAlign:"center"}}><div style={{fontSize:20,fontWeight:700,color:s.c,lineHeight:1}}>{s.v}</div><div style={{fontSize:9,color:"#555d65",marginTop:3}}>{s.l.toUpperCase()}</div></div>)}
+              </div>
+              {/* Color swatches */}
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:9,fontWeight:700,color:"#555d65",letterSpacing:"0.1em",marginBottom:6}}>MECHANIC COLOR</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {MECHANIC_COLORS.map(c=>(
+                    <button key={c.value} type="button" title={c.label}
+                      onClick={async()=>{
+                        await supabase.from("profiles").update({color:c.value}).eq("id",m.id);
+                        onColorChange(m.id,c.value);
+                      }}
+                      style={{width:24,height:24,borderRadius:"50%",background:c.value,border:(m.color||getMechColor(m))===c.value?`2px solid #fff`:`1.5px solid ${c.value}55`,cursor:"pointer",flexShrink:0,transition:"transform .12s",transform:(m.color||getMechColor(m))===c.value?"scale(1.25)":"scale(1)",boxShadow:(m.color||getMechColor(m))===c.value?`0 0 0 2px #1C2333, 0 0 0 3px ${c.value}`:"none"}}
+                    />
+                  ))}
+                </div>
               </div>
               <Btn variant="red" onClick={()=>onDelete(m)} style={{width:"100%",padding:"8px",fontSize:12}}>REMOVE ACCOUNT</Btn>
             </div>
@@ -909,7 +959,7 @@ function ManagerDashboard({user,onLogout}){
       <div className="page-pad" style={{maxWidth:1600,margin:"0 auto"}}>
         <ErrBanner msg={err}/>
         {tab==="orders"&&<><StatsCards orders={orders}/><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={()=>{setSaving(false);setErr("");setModal("create");}} onEdit={o=>{setSaving(false);setErr("");setSel(o);setModal("edit");}} onDelete={o=>{setSel(o);setModal("delete");}}/></>}
-        {tab==="team"&&<><MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={()=>setShowAdd(true)} onDelete={m=>setSelMech(m)}/><TVPinSettings userId={user.id}/></>}
+        {tab==="team"&&<><MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={()=>setShowAdd(true)} onDelete={m=>setSelMech(m)} onColorChange={(id,color)=>setMechanics(prev=>prev.map(m=>m.id===id?{...m,color}:m))}/><TVPinSettings userId={user.id}/></>}
         {tab==="messages"&&<MessagingPanel currentUser={user} mechanics={mechanics}/>}
       </div>
       {/* Bottom tab bar */}

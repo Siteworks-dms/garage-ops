@@ -638,18 +638,26 @@ function AddMechanicModal({onClose,onCreated}){
       const{data:ex}=await supabase.from("profiles").select("id").eq("username",uname);
       if(ex&&ex.length>0){setApiErr("That username is already taken.");setSaving(false);return;}
 
-      // Call Supabase signup REST API directly via fetch — does NOT touch the
-      // current supabase client session, so the manager stays logged in
+      // Use Supabase Admin API with service role key — no emails sent, no rate limits
       const supabaseUrl=import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey=import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const signupRes=await fetch(`${supabaseUrl}/auth/v1/signup`,{
+      const serviceKey=import.meta.env.VITE_SUPABASE_SERVICE_KEY;
+      if(!serviceKey){setApiErr("Service key not configured. Add VITE_SUPABASE_SERVICE_KEY to your .env file.");setSaving(false);return;}
+      const signupRes=await fetch(`${supabaseUrl}/auth/v1/admin/users`,{
         method:"POST",
-        headers:{"Content-Type":"application/json","apikey":supabaseAnonKey,"Authorization":`Bearer ${supabaseAnonKey}`},
-        body:JSON.stringify({email:authEmail,password:form.password}),
+        headers:{
+          "Content-Type":"application/json",
+          "apikey":serviceKey,
+          "Authorization":`Bearer ${serviceKey}`,
+        },
+        body:JSON.stringify({
+          email:authEmail,
+          password:form.password,
+          email_confirm:true, // mark as confirmed — no email sent
+        }),
       });
       const signupData=await signupRes.json();
-      if(!signupRes.ok){setApiErr(signupData.msg||signupData.error_description||"Failed to create account.");setSaving(false);return;}
-      const newId=signupData.user?.id||signupData.id;
+      if(!signupRes.ok){setApiErr(signupData.msg||signupData.message||signupData.error_description||"Failed to create account.");setSaving(false);return;}
+      const newId=signupData.id;
       if(!newId){setApiErr("Account created but ID not returned. Try again.");setSaving(false);return;}
 
       // Insert profile — manager session is still intact

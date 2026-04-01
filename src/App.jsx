@@ -462,14 +462,14 @@ function RegisterGarageModal({ onClose, onRegistered }) {
   // Auto-generate code from garage name
   useEffect(() => {
     if (codeManual) return;
-    const raw = garageName.trim().toUpperCase().replace(/[^A-Z0-9\s]/g, "").replace(/\s+/g, "-").slice(0, 12);
+    const raw = garageName.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, "").slice(0, 16);
     setGarageCode(raw || "");
   }, [garageName, codeManual]);
 
   const validateStep1 = () => {
     if (!garageName.trim())           return "Garage name is required.";
     if (!garageCode.trim())           return "Garage code is required.";
-    if (!/^[A-Z0-9-]{3,16}$/.test(garageCode)) return "Code must be 3–16 chars: letters, numbers, hyphens only.";
+    if (!/^[a-z0-9-]{3,20}$/.test(garageCode)) return "Code must be 3–20 chars: lowercase letters, numbers, hyphens only.";
     return null;
   };
 
@@ -488,7 +488,7 @@ function RegisterGarageModal({ onClose, onRegistered }) {
       const err = validateStep1(); if (err) { setError(err); return; }
       // Check code not taken
       setSaving(true);
-      const { data } = await supabase.from("garages").select("id").eq("code", garageCode.trim()).single();
+      const { data } = await supabase.from("garages").select("id").eq("slug", garageCode.toLowerCase().trim()).single();
       setSaving(false);
       if (data) { setError("That garage code is already taken. Choose a different one."); return; }
       setStep(2);
@@ -497,7 +497,7 @@ function RegisterGarageModal({ onClose, onRegistered }) {
       setSaving(true);
       try {
         // 1. Create garage
-        const { data: garage, error: ge } = await supabase.from("garages").insert({ name: garageName.trim(), code: garageCode.trim() }).select().single();
+        const { data: garage, error: ge } = await supabase.from("garages").insert({ name: garageName.trim(), slug: garageCode.toLowerCase().trim() }).select().single();
         if (ge) { setError(ge.message); setSaving(false); return; }
 
         // 2. Create manager auth account via Admin API
@@ -568,7 +568,7 @@ function RegisterGarageModal({ onClose, onRegistered }) {
               <div>
                 <FieldLabel required>Garage Code (share this with your team)</FieldLabel>
                 <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                  <input value={garageCode} onChange={e=>{setGarageCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g,""));setCodeManual(true);}} placeholder="SMITH-AUTO" style={{ fontFamily:"monospace", letterSpacing:"0.1em", fontSize:15 }} maxLength={16}/>
+                  <input value={garageCode} onChange={e=>{setGarageCode(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""));setCodeManual(true);}} placeholder="SMITH-AUTO" style={{ fontFamily:"monospace", letterSpacing:"0.1em", fontSize:15 }} maxLength={16}/>
                   {codeManual && <button onClick={()=>setCodeManual(false)} style={{ background:"none", border:"none", color:"#6E7681", fontSize:11, cursor:"pointer", whiteSpace:"nowrap", fontFamily:"'Rajdhani',sans-serif" }}>auto</button>}
                 </div>
                 <div style={{ fontSize:11, color:"#555d65", marginTop:4 }}>This is your unique login code. Letters, numbers and hyphens only.</div>
@@ -715,7 +715,7 @@ function LoginScreen({onLogin}){
       </div>
     </div>
     {showForgot&&<ForgotPasswordModal onClose={()=>setShowForgot(false)}/>}
-    {showRegister&&<RegisterGarageModal onClose={()=>setShowRegister(false)} onRegistered={(code,uname)=>{setShowRegister(false);setGarageCode(code);setUsername(uname);}}/>}
+    {showRegister&&<RegisterGarageModal onClose={()=>setShowRegister(false)} onRegistered={(slug,uname)=>{setShowRegister(false);setGarageCode(slug);setUsername(uname);}}/>}
   </>);
 }
 

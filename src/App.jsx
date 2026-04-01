@@ -965,10 +965,27 @@ function ManagerDashboard({user,onLogout}){
 
   const handleDelMech=async()=>{
     setDelMech(true);setErr("");
-    await supabase.from("work_orders").update({mechanic_id:null,updated_at:todayStr()}).eq("mechanic_id",selMech.id);
-    const{error}=await supabase.from("profiles").delete().eq("id",selMech.id);
-    if(error){setErr(error.message);setDelMech(false);return;}
-    await Promise.all([loadOrders(),loadMechanics()]);setSelMech(null);setDelMech(false);
+    try{
+      // 1. Unassign their work orders
+      await supabase.from("work_orders").update({mechanic_id:null,updated_at:todayStr()}).eq("mechanic_id",selMech.id);
+
+      // 2. Delete profile record
+      const{error:pe}=await supabase.from("profiles").delete().eq("id",selMech.id);
+      if(pe){setErr(pe.message);setDelMech(false);return;}
+
+      // 3. Delete auth user via Admin API (requires service role key)
+      const supabaseUrl=import.meta.env.VITE_SUPABASE_URL;
+      const serviceKey=import.meta.env.VITE_SUPABASE_SERVICE_KEY;
+      if(serviceKey){
+        await fetch(`${supabaseUrl}/auth/v1/admin/users/${selMech.id}`,{
+          method:"DELETE",
+          headers:{"apikey":serviceKey,"Authorization":`Bearer ${serviceKey}`},
+        });
+      }
+
+      await Promise.all([loadOrders(),loadMechanics()]);
+      setSelMech(null);setDelMech(false);
+    }catch(e){setErr(e?.message??"Unexpected error removing mechanic.");setDelMech(false);}
   };
 
   const tabs=[{id:"orders",label:"Orders",icon:"📋",count:orders.length},{id:"team",label:"Team",icon:"👷",count:mechanics.length},{id:"messages",label:"Messages",icon:"💬",badge:unread}];

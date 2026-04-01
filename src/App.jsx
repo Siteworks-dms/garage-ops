@@ -308,8 +308,132 @@ function TVDisplay(){
 
 // ── Login ──────────────────────────────────────────────────────────────────────
 
+
+// ── Forgot Password Modal ──────────────────────────────────────────────────────
+
+function ForgotPasswordModal({ onClose }) {
+  const [username, setUsername] = useState("");
+  const [role,     setRole]     = useState(null); // null | "manager" | "mechanic"
+  const [checking, setChecking] = useState(false);
+  const [newPass,  setNewPass]  = useState("");
+  const [confirm,  setConfirm]  = useState("");
+  const [saving,   setSaving]   = useState(false);
+  const [msg,      setMsg]      = useState("");
+  const [msgType,  setMsgType]  = useState("success");
+  const [done,     setDone]     = useState(false);
+
+  const lookup = async () => {
+    if (!username.trim()) return;
+    setChecking(true); setMsg(""); setRole(null);
+    const { data } = await supabase.from("profiles")
+      .select("role, id").eq("username", username.toLowerCase().trim()).single();
+    if (!data) { setMsg("Username not found."); setMsgType("error"); setChecking(false); return; }
+    setRole(data.role);
+    setChecking(false);
+  };
+
+  const resetManagerPassword = async () => {
+    if (!newPass || newPass.length < 6) { setMsg("Password must be at least 6 characters."); setMsgType("error"); return; }
+    if (newPass !== confirm) { setMsg("Passwords do not match."); setMsgType("error"); return; }
+    setSaving(true); setMsg("");
+    try {
+      // Look up manager's auth email and id
+      const { data: profile } = await supabase.from("profiles")
+        .select("id, auth_email").eq("username", username.toLowerCase().trim()).single();
+      if (!profile) { setMsg("Profile not found."); setMsgType("error"); setSaving(false); return; }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const serviceKey  = import.meta.env.VITE_SUPABASE_SERVICE_KEY;
+      if (!serviceKey) { setMsg("Service key not configured. Contact your system administrator."); setMsgType("error"); setSaving(false); return; }
+
+      const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${profile.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "apikey": serviceKey, "Authorization": `Bearer ${serviceKey}` },
+        body: JSON.stringify({ password: newPass }),
+      });
+      if (!res.ok) { const d = await res.json(); setMsg(d.message || "Failed to reset password."); setMsgType("error"); setSaving(false); return; }
+      setDone(true); setMsg("Password reset successfully! You can now log in with your new password."); setMsgType("success");
+    } catch(e) { setMsg(e?.message ?? "Unexpected error."); setMsgType("error"); }
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", padding:16, zIndex:300, backdropFilter:"blur(4px)" }}>
+      <div className="slide-in" style={{ background:"#161B22", border:"1px solid rgba(255,255,255,0.08)", borderRadius:18, width:"100%", maxWidth:400, overflow:"hidden" }}>
+        <div style={{ height:3, background:"linear-gradient(90deg,transparent,#3B82F6 30%,#06B6D4 70%,transparent)" }}/>
+        <div style={{ padding:"28px 24px 24px" }}>
+          <div style={{ textAlign:"center", marginBottom:24 }}>
+            <div style={{ fontSize:32, marginBottom:8 }}>🔑</div>
+            <div style={{ fontSize:20, fontWeight:700, letterSpacing:"0.06em" }}>FORGOT PASSWORD</div>
+          </div>
+
+          {!role ? (
+            // Step 1 — enter username
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <div>
+                <FieldLabel>USERNAME</FieldLabel>
+                <div style={{ position:"relative" }}>
+                  <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#555d65", fontSize:15, fontWeight:600, pointerEvents:"none" }}>@</span>
+                  <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase())} onKeyDown={e=>e.key==="Enter"&&lookup()} placeholder="your_username" autoCapitalize="none" autoCorrect="off" style={{ paddingLeft:28 }}/>
+                </div>
+              </div>
+              {msg && <div style={{ fontSize:13, color:msgType==="error"?"#F87171":"#34D399", fontWeight:600 }}>{msg}</div>}
+              <Btn variant="blue" onClick={lookup} disabled={checking||!username.trim()} style={{ width:"100%" }}>
+                {checking ? <><Spinner size={14}/>LOOKING UP…</> : "CONTINUE →"}
+              </Btn>
+            </div>
+          ) : role === "mechanic" ? (
+            // Mechanic — contact manager
+            <div style={{ textAlign:"center" }}>
+              <div style={{ background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.2)", borderRadius:10, padding:"20px 16px", marginBottom:20 }}>
+                <div style={{ fontSize:28, marginBottom:10 }}>👷</div>
+                <div style={{ fontSize:15, fontWeight:700, marginBottom:8, color:"#E6EDF3" }}>Contact Your Manager</div>
+                <div style={{ fontSize:13, color:"#8B949E", lineHeight:1.7 }}>
+                  As a mechanic, your password can only be reset by your manager.<br/>
+                  Ask them to reset it from the <strong style={{ color:"#3B82F6" }}>Team tab</strong> in the Manager Dashboard.
+                </div>
+              </div>
+            </div>
+          ) : (
+            // Manager — self-service reset via Admin API
+            done ? (
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:36, marginBottom:10 }}>✅</div>
+                <div style={{ fontSize:15, fontWeight:700, color:"#10B981", marginBottom:8 }}>Password Reset!</div>
+                <div style={{ fontSize:13, color:"#8B949E", marginBottom:20 }}>{msg}</div>
+              </div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+                <div style={{ background:"rgba(245,158,11,0.06)", border:"1px solid rgba(245,158,11,0.2)", borderRadius:8, padding:"10px 14px", fontSize:12, color:"#8B949E" }}>
+                  Resetting password for <strong style={{ color:"#F59E0B" }}>@{username}</strong> (Manager)
+                </div>
+                <div>
+                  <FieldLabel required>New Password</FieldLabel>
+                  <input type="password" value={newPass} onChange={e=>setNewPass(e.target.value)} placeholder="At least 6 characters"/>
+                </div>
+                <div>
+                  <FieldLabel required>Confirm New Password</FieldLabel>
+                  <input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&resetManagerPassword()} placeholder="Re-enter password"/>
+                </div>
+                {msg && <div style={{ fontSize:13, color:msgType==="error"?"#F87171":"#34D399", fontWeight:600 }}>{msg}</div>}
+                <Btn variant="primary" onClick={resetManagerPassword} disabled={saving||!newPass||!confirm} style={{ width:"100%" }}>
+                  {saving ? <><Spinner size={14}/>RESETTING…</> : "RESET PASSWORD"}
+                </Btn>
+              </div>
+            )
+          )}
+
+          <div style={{ marginTop:16, textAlign:"center" }}>
+            <button onClick={onClose} style={{ background:"none", border:"none", color:"#6E7681", fontSize:13, cursor:"pointer", fontFamily:"'Rajdhani',sans-serif" }}>← Back to Login</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LoginScreen({onLogin}){
-  const[username,setUsername]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);
+  const[username,setUsername]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const[showForgot,setShowForgot]=useState(false);
 
   const handleLogin=async()=>{
     if(!username||!password)return;
@@ -357,8 +481,88 @@ function LoginScreen({onLogin}){
             <Btn variant="primary" onClick={handleLogin} disabled={loading||!username||!password} style={{width:"100%",padding:"14px",fontSize:16,marginTop:4}}>
               {loading?<><Spinner size={16}/>SIGNING IN…</>:"SIGN IN  →"}
             </Btn>
+            <button onClick={()=>setShowForgot(true)} style={{background:"none",border:"none",color:"#6E7681",fontSize:13,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",padding:"4px 0",textAlign:"center",width:"100%",marginTop:4}}>
+              Forgot password?
+            </button>
           </div>
 
+        </div>
+      </div>
+    </div>
+    {showForgot&&<ForgotPasswordModal onClose={()=>setShowForgot(false)}/>}
+  );
+}
+
+
+// ── Change Password Modal ──────────────────────────────────────────────────────
+
+function ChangePasswordModal({ onClose }) {
+  const [current, setCurrent] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving,  setSaving]  = useState(false);
+  const [msg,     setMsg]     = useState("");
+  const [msgType, setMsgType] = useState("success");
+
+  const save = async () => {
+    if (!current)             { setMsg("Enter your current password."); setMsgType("error"); return; }
+    if (newPass.length < 6)   { setMsg("New password must be at least 6 characters."); setMsgType("error"); return; }
+    if (newPass !== confirm)  { setMsg("New passwords do not match."); setMsgType("error"); return; }
+    if (current === newPass)  { setMsg("New password must be different from current."); setMsgType("error"); return; }
+    setSaving(true); setMsg("");
+    try {
+      // Re-authenticate first to verify current password
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile }  = await supabase.from("profiles").select("auth_email").eq("id", user.id).single();
+      const { error: authErr } = await supabase.auth.signInWithPassword({ email: profile.auth_email, password: current });
+      if (authErr) { setMsg("Current password is incorrect."); setMsgType("error"); setSaving(false); return; }
+
+      // Update password
+      const { error: updateErr } = await supabase.auth.updateUser({ password: newPass });
+      if (updateErr) { setMsg(updateErr.message); setMsgType("error"); setSaving(false); return; }
+
+      setMsg("✓ Password changed successfully!"); setMsgType("success");
+      setCurrent(""); setNewPass(""); setConfirm("");
+      setTimeout(() => onClose(), 2000);
+    } catch(e) { setMsg(e?.message ?? "Unexpected error."); setMsgType("error"); }
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300, backdropFilter:"blur(4px)" }}>
+      <div className="slide-up" style={{ background:"#1C2333", border:"1px solid rgba(255,255,255,0.1)", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:480, paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))" }}>
+        <div style={{ width:36, height:4, background:"rgba(255,255,255,0.15)", borderRadius:2, margin:"12px auto 0" }}/>
+        <div style={{ padding:"16px 20px 12px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div>
+            <div style={{ fontSize:16, fontWeight:700 }}>CHANGE PASSWORD</div>
+            <div style={{ fontSize:12, color:"#8B949E", marginTop:2 }}>Enter your current password to confirm</div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#6E7681", fontSize:28, cursor:"pointer", width:44, height:44, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+        </div>
+        <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", gap:14 }}>
+          <div>
+            <FieldLabel required>Current Password</FieldLabel>
+            <input type="password" value={current} onChange={e=>setCurrent(e.target.value)} placeholder="Your current password" autoComplete="current-password"/>
+          </div>
+          <div>
+            <FieldLabel required>New Password</FieldLabel>
+            <input type="password" value={newPass} onChange={e=>setNewPass(e.target.value)} placeholder="At least 6 characters" autoComplete="new-password"/>
+          </div>
+          <div>
+            <FieldLabel required>Confirm New Password</FieldLabel>
+            <input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&save()} placeholder="Re-enter new password" autoComplete="new-password"/>
+          </div>
+          {msg && (
+            <div style={{ background:msgType==="success"?"rgba(16,185,129,0.09)":"rgba(239,68,68,0.09)", border:`1px solid ${msgType==="success"?"rgba(16,185,129,0.28)":"rgba(239,68,68,0.28)"}`, color:msgType==="success"?"#34D399":"#F87171", borderRadius:8, padding:"10px 14px", fontSize:13, fontWeight:600 }}>
+              {msg}
+            </div>
+          )}
+        </div>
+        <div style={{ padding:"0 20px 20px", display:"flex", gap:10 }}>
+          <Btn variant="ghost" onClick={onClose} disabled={saving} style={{ flex:1 }}>CANCEL</Btn>
+          <Btn variant="primary" onClick={save} disabled={saving||!current||!newPass||!confirm} style={{ flex:2 }}>
+            {saving ? <><Spinner size={14}/>SAVING…</> : "CHANGE PASSWORD"}
+          </Btn>
         </div>
       </div>
     </div>
@@ -367,7 +571,7 @@ function LoginScreen({onLogin}){
 
 // ── Top Nav ────────────────────────────────────────────────────────────────────
 
-function TopNav({user,onLogout,unreadCount=0,onTVOpen}){
+function TopNav({user,onLogout,unreadCount=0,onTVOpen,onChangePassword}){
   return(
     <div style={{height:54,background:"#161B22",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",alignItems:"center",padding:"0 14px",gap:10,position:"sticky",top:0,zIndex:50}}>
       <svg width="20" height="20" viewBox="0 0 34 34" fill="none"><polygon points="17,3 31,10 31,24 17,31 3,24 3,10" stroke="#F59E0B" strokeWidth="1.5" strokeLinejoin="round" fill="none"/><circle cx="17" cy="17" r="4.5" stroke="#F59E0B" strokeWidth="1.5" fill="rgba(245,158,11,0.1)"/><line x1="17" y1="12.5" x2="17" y2="8" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="17" y1="21.5" x2="17" y2="26" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="12.5" y1="17" x2="8" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="21.5" y1="17" x2="26" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/></svg>
@@ -382,6 +586,7 @@ function TopNav({user,onLogout,unreadCount=0,onTVOpen}){
           <span style={{fontSize:13,fontWeight:600,lineHeight:1.2}}>{user.full_name}</span>
           {user.username&&<span style={{fontSize:11,color:"#6E7681",fontFamily:"monospace"}}>@{user.username}</span>}
         </div>
+        <button onClick={onChangePassword} style={{background:"rgba(59,130,246,0.1)",border:"1px solid rgba(59,130,246,0.25)",color:"#3B82F6",borderRadius:6,padding:"5px 10px",fontSize:11,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",fontWeight:700,minHeight:32,touchAction:"manipulation",whiteSpace:"nowrap"}}>🔑</button>
         <button onClick={onLogout} style={{background:"none",border:"1px solid rgba(255,255,255,0.1)",color:"#8B949E",borderRadius:6,padding:"5px 10px",fontSize:11,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",fontWeight:700,minHeight:32,touchAction:"manipulation"}}>OUT</button>
       </div>
     </div>
@@ -707,7 +912,7 @@ function AddMechanicModal({onClose,onCreated}){
 
 // ── Mechanics Panel ────────────────────────────────────────────────────────────
 
-function MechanicsPanel({mechanics,orders,onAdd,onDelete,onColorChange,loading}){
+function MechanicsPanel({mechanics,orders,onAdd,onDelete,onColorChange,onResetPwd,loading}){
   const cnt=(id,s)=>orders.filter(o=>o.mechanic_id===id&&(!s||o.status===s)).length;
   return(
     <div>
@@ -742,11 +947,85 @@ function MechanicsPanel({mechanics,orders,onAdd,onDelete,onColorChange,loading})
                   ))}
                 </div>
               </div>
-              <Btn variant="red" onClick={()=>onDelete(m)} style={{width:"100%",padding:"8px",fontSize:12}}>REMOVE ACCOUNT</Btn>
+              <div style={{display:"flex",gap:8}}>
+                <Btn variant="blue" onClick={()=>onResetPwd(m)} style={{flex:1,padding:"8px",fontSize:12}}>🔑 RESET PWD</Btn>
+                <Btn variant="red" onClick={()=>onDelete(m)} style={{flex:1,padding:"8px",fontSize:12}}>REMOVE</Btn>
+              </div>
             </div>
           );})}
         </div>
       )}
+    </div>
+  );
+}
+
+
+// ── Reset Mechanic Password Modal (manager only) ───────────────────────────────
+
+function ResetMechanicPasswordModal({ mechanic, onClose }) {
+  const [newPass, setNewPass] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving,  setSaving]  = useState(false);
+  const [msg,     setMsg]     = useState("");
+  const [msgType, setMsgType] = useState("success");
+
+  const reset = async () => {
+    if (newPass.length < 6) { setMsg("Password must be at least 6 characters."); setMsgType("error"); return; }
+    if (newPass !== confirm) { setMsg("Passwords do not match."); setMsgType("error"); return; }
+    setSaving(true); setMsg("");
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const serviceKey  = import.meta.env.VITE_SUPABASE_SERVICE_KEY;
+      if (!serviceKey) { setMsg("Service key not configured."); setMsgType("error"); setSaving(false); return; }
+
+      const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${mechanic.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "apikey": serviceKey, "Authorization": `Bearer ${serviceKey}` },
+        body: JSON.stringify({ password: newPass }),
+      });
+      if (!res.ok) { const d = await res.json(); setMsg(d.message || "Failed to reset password."); setMsgType("error"); setSaving(false); return; }
+      setMsg(`✓ Password reset for ${mechanic.full_name}!`); setMsgType("success");
+      setNewPass(""); setConfirm("");
+      setTimeout(() => onClose(), 2000);
+    } catch(e) { setMsg(e?.message ?? "Unexpected error."); setMsgType("error"); }
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300, backdropFilter:"blur(4px)" }}>
+      <div className="slide-up" style={{ background:"#1C2333", border:"1px solid rgba(59,130,246,0.2)", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:480, paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))" }}>
+        <div style={{ width:36, height:4, background:"rgba(255,255,255,0.15)", borderRadius:2, margin:"12px auto 0" }}/>
+        <div style={{ padding:"16px 20px 12px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div>
+            <div style={{ fontSize:16, fontWeight:700 }}>RESET PASSWORD</div>
+            <div style={{ fontSize:12, color:"#8B949E", marginTop:2 }}>
+              Setting new password for <strong style={{ color:"#3B82F6" }}>{mechanic.full_name}</strong> (@{mechanic.username})
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#6E7681", fontSize:28, cursor:"pointer", width:44, height:44, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+        </div>
+        <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", gap:14 }}>
+          <div>
+            <FieldLabel required>New Password</FieldLabel>
+            <input type="password" value={newPass} onChange={e=>setNewPass(e.target.value)} placeholder="At least 6 characters"/>
+          </div>
+          <div>
+            <FieldLabel required>Confirm Password</FieldLabel>
+            <input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&reset()} placeholder="Re-enter password"/>
+          </div>
+          {msg && (
+            <div style={{ background:msgType==="success"?"rgba(16,185,129,0.09)":"rgba(239,68,68,0.09)", border:`1px solid ${msgType==="success"?"rgba(16,185,129,0.28)":"rgba(239,68,68,0.28)"}`, color:msgType==="success"?"#34D399":"#F87171", borderRadius:8, padding:"10px 14px", fontSize:13, fontWeight:600 }}>
+              {msg}
+            </div>
+          )}
+        </div>
+        <div style={{ padding:"0 20px 20px", display:"flex", gap:10 }}>
+          <Btn variant="ghost" onClick={onClose} disabled={saving} style={{ flex:1 }}>CANCEL</Btn>
+          <Btn variant="blue" onClick={reset} disabled={saving||!newPass||!confirm} style={{ flex:2 }}>
+            {saving ? <><Spinner size={14}/>RESETTING…</> : "RESET PASSWORD"}
+          </Btn>
+        </div>
+      </div>
     </div>
   );
 }
@@ -925,7 +1204,7 @@ function ManagerDashboard({user,onLogout}){
   const[orders,setOrders]=useState([]);const[mechanics,setMechanics]=useState([]);const[loading,setLoading]=useState(true);
   const[tab,setTab]=useState("orders");const[modal,setModal]=useState(null);const[sel,setSel]=useState(null);
   const[saving,setSaving]=useState(false);const[deleting,setDeleting]=useState(false);const[err,setErr]=useState("");
-  const[showAdd,setShowAdd]=useState(false);const[selMech,setSelMech]=useState(null);const[delMech,setDelMech]=useState(false);const[unread,setUnread]=useState(0);
+  const[showAdd,setShowAdd]=useState(false);const[selMech,setSelMech]=useState(null);const[delMech,setDelMech]=useState(false);const[unread,setUnread]=useState(0);const[showChangePwd,setShowChangePwd]=useState(false);const[selResetMech,setSelResetMech]=useState(null);
 
   const loadOrders   =async()=>{const{data,error}=await supabase.from("work_orders").select("*").order("created_at",{ascending:false});if(error)setErr(error.message);else setOrders(data??[]);};
   const loadMechanics=async()=>{const{data}=await supabase.from("profiles").select("*").eq("role","mechanic");setMechanics(data??[]);};
@@ -982,11 +1261,12 @@ function ManagerDashboard({user,onLogout}){
 
   return(
     <div style={{background:"#0D1117",minHeight:"100vh",paddingBottom:64}}>
-      <TopNav user={user} onLogout={onLogout} unreadCount={unread} onTVOpen={()=>window.open(window.location.origin+"?tv=1","_blank")}/>
+      {showChangePwd&&<ChangePasswordModal onClose={()=>setShowChangePwd(false)}/>}
+      <TopNav user={user} onLogout={onLogout} unreadCount={unread} onTVOpen={()=>window.open(window.location.origin+"?tv=1","_blank")} onChangePassword={()=>setShowChangePwd(true)}/>
       <div className="page-pad" style={{maxWidth:1600,margin:"0 auto"}}>
         <ErrBanner msg={err}/>
         {tab==="orders"&&<><StatsCards orders={orders}/><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={()=>{setSaving(false);setErr("");setModal("create");}} onEdit={o=>{setSaving(false);setErr("");setSel(o);setModal("edit");}} onDelete={o=>{setSel(o);setModal("delete");}}/></>}
-        {tab==="team"&&<><MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={()=>setShowAdd(true)} onDelete={m=>setSelMech(m)} onColorChange={(id,color)=>setMechanics(prev=>prev.map(m=>m.id===id?{...m,color}:m))}/><TVPinSettings userId={user.id}/></>}
+        {tab==="team"&&<><MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={()=>setShowAdd(true)} onDelete={m=>setSelMech(m)} onColorChange={(id,color)=>setMechanics(prev=>prev.map(m=>m.id===id?{...m,color}:m))} onResetPwd={m=>setSelResetMech(m)}/><TVPinSettings userId={user.id}/></>}
         {tab==="messages"&&<MessagingPanel currentUser={user} mechanics={mechanics}/>}
       </div>
       {/* Bottom tab bar */}
@@ -1004,6 +1284,7 @@ function ManagerDashboard({user,onLogout}){
       {(modal==="create"||modal==="edit")&&<OrderModal mode={modal} order={sel} mechanics={mechanics} onSave={handleSave} onClose={closeOrder} saving={saving}/>}
       {modal==="delete"&&<ConfirmModal title="Delete Work Order" body={<>Delete <strong style={{color:"#F59E0B"}}>{sel?.order_number}</strong> for <strong style={{color:"#E6EDF3"}}>{sel?.customer}</strong>? This cannot be undone.</>} confirmLabel="DELETE ORDER" onConfirm={handleDelOrder} onClose={closeOrder} loading={deleting}/>}
       {showAdd&&<AddMechanicModal onClose={()=>setShowAdd(false)} onCreated={()=>loadMechanics()}/>}
+      {selResetMech&&<ResetMechanicPasswordModal mechanic={selResetMech} onClose={()=>setSelResetMech(null)}/>}
       {selMech&&<ConfirmModal title="Remove Mechanic" body={<>Remove <strong style={{color:"#E6EDF3"}}>{selMech.full_name}</strong> (@{selMech.username})? {orders.filter(o=>o.mechanic_id===selMech.id).length>0&&<span style={{color:"#D97706"}}>⚠ Their orders will be unassigned. </span>}Cannot be undone.</>} confirmLabel="REMOVE MECHANIC" onConfirm={handleDelMech} onClose={()=>setSelMech(null)} loading={delMech}/>}
     </div>
   );
@@ -1012,7 +1293,7 @@ function ManagerDashboard({user,onLogout}){
 // ── Mechanic Dashboard ─────────────────────────────────────────────────────────
 
 function MechanicDashboard({user,onLogout}){
-  const[orders,setOrders]=useState([]);const[loading,setLoading]=useState(true);const[dbErr,setDbErr]=useState("");const[tab,setTab]=useState("orders");const[unread,setUnread]=useState(0);const[mgr,setMgr]=useState(null);const[filterSt,setFilterSt]=useState("All");
+  const[orders,setOrders]=useState([]);const[loading,setLoading]=useState(true);const[dbErr,setDbErr]=useState("");const[tab,setTab]=useState("orders");const[unread,setUnread]=useState(0);const[mgr,setMgr]=useState(null);const[filterSt,setFilterSt]=useState("All");const[showChangePwd,setShowChangePwd]=useState(false);
 
   const loadOrders=async()=>{setLoading(true);const{data,error}=await supabase.from("work_orders").select("*").eq("mechanic_id",user.id).order("created_at",{ascending:false});if(error)setDbErr(error.message);else setOrders(data??[]);setLoading(false);};
   const loadUnread=async()=>{const{count}=await supabase.from("messages").select("*",{count:"exact",head:true}).eq("receiver_id",user.id).eq("is_read",false);setUnread(count??0);};
@@ -1039,7 +1320,8 @@ function MechanicDashboard({user,onLogout}){
 
   return(
     <div style={{background:"#0D1117",minHeight:"100vh",paddingBottom:64}}>
-      <TopNav user={user} onLogout={onLogout} unreadCount={unread}/>
+      {showChangePwd&&<ChangePasswordModal onClose={()=>setShowChangePwd(false)}/>}
+      <TopNav user={user} onLogout={onLogout} unreadCount={unread} onChangePassword={()=>setShowChangePwd(true)}/>
       <div className="page-pad" style={{maxWidth:900,margin:"0 auto"}}>
         <ErrBanner msg={dbErr}/>
         {tab==="orders"&&(

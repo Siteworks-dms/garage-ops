@@ -1490,6 +1490,13 @@ function ManagerDashboard({user,onLogout}){
       {showChangePwd&&<ChangePasswordModal onClose={()=>setShowChangePwd(false)}/>}
       <TopNav user={user} onLogout={onLogout} unreadCount={unread} onTVOpen={()=>window.open(window.location.origin+"?tv=1&garage="+(user.garageSlug||""),"_blank")} onChangePassword={()=>setShowChangePwd(true)}/>
       <div className="page-pad" style={{maxWidth:1600,margin:"0 auto"}}>
+        {/* Garage header */}
+        <div style={{marginBottom:20,paddingBottom:16,borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+          <div style={{fontSize:22,fontWeight:700,letterSpacing:"0.04em",color:"#E6EDF3"}}>{user.garageName||"My Garage"}</div>
+          <div style={{fontSize:11,color:"#484f58",marginTop:3,letterSpacing:"0.08em"}}>
+            Powered by <span style={{color:"#F59E0B",fontWeight:700}}>Garage</span><span style={{color:"#E6EDF3",fontWeight:700}}>OPS</span>
+          </div>
+        </div>
         <ErrBanner msg={err}/>
         {tab==="orders"&&<><StatsCards orders={orders}/><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={()=>{setSaving(false);setErr("");setModal("create");}} onEdit={o=>{setSaving(false);setErr("");setSel(o);setModal("edit");}} onDelete={o=>{setSel(o);setModal("delete");}}/></>}
         {tab==="team"&&<><MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={()=>setShowAdd(true)} onDelete={m=>setSelMech(m)} onColorChange={(id,color)=>setMechanics(prev=>prev.map(m=>m.id===id?{...m,color}:m))} onResetPwd={m=>setSelResetMech(m)}/><TVPinSettings userId={user.id}/></>}

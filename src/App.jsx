@@ -490,7 +490,7 @@ function LoginScreen({onLogin}){
       </div>
     </div>
     {showForgot&&<ForgotPasswordModal onClose={()=>setShowForgot(false)}/>}
-  </>;
+  </>);
 }
 
 

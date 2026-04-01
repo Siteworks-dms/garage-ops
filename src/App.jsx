@@ -452,7 +452,7 @@ function LoginScreen({onLogin}){
 
 
 
-  return(
+  return(<>
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"radial-gradient(ellipse at 50% 0%,#1a1200 0%,#0D1117 60%)",padding:16}}>
       <div style={{position:"fixed",inset:0,pointerEvents:"none",backgroundImage:"radial-gradient(circle,rgba(245,158,11,0.045) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
       <div className="slide-in" style={{width:"100%",maxWidth:420,background:"#161B22",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,overflow:"hidden",boxShadow:"0 32px 100px rgba(0,0,0,0.6)"}}>
@@ -490,7 +490,7 @@ function LoginScreen({onLogin}){
       </div>
     </div>
     {showForgot&&<ForgotPasswordModal onClose={()=>setShowForgot(false)}/>}
-  );
+  </>;
 }
 
 

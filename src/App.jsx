@@ -326,7 +326,7 @@ function LoginScreen({onLogin}){
     }catch{setError("Unexpected error. Please try again.");setLoading(false);}
   };
 
-  const demo=[{label:"Manager",username:"manager",pass:"garage123",color:"#F59E0B"},{label:"Mechanic",username:"mike",pass:"wrench1",color:"#3B82F6"},{label:"Mechanic",username:"sarah",pass:"tools2",color:"#10B981"},{label:"Mechanic",username:"carlos",pass:"motor3",color:"#8B5CF6"}];
+
 
   return(
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"radial-gradient(ellipse at 50% 0%,#1a1200 0%,#0D1117 60%)",padding:16}}>
@@ -358,17 +358,7 @@ function LoginScreen({onLogin}){
               {loading?<><Spinner size={16}/>SIGNING IN…</>:"SIGN IN  →"}
             </Btn>
           </div>
-          <div style={{marginTop:20,background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10,padding:"12px 14px"}}>
-            <div style={{fontSize:10,fontWeight:700,color:"#555d65",letterSpacing:"0.12em",marginBottom:8}}>DEMO CREDENTIALS</div>
-            {demo.map(d=>(
-              <div key={d.username} onClick={()=>{setUsername(d.username);setPassword(d.pass);}} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",cursor:"pointer",borderBottom:"1px solid rgba(255,255,255,0.04)"}}>
-                <span style={{fontSize:10,fontWeight:700,color:d.color,background:d.color+"18",border:`1px solid ${d.color}35`,borderRadius:4,padding:"2px 8px",minWidth:64,textAlign:"center"}}>{d.label.toUpperCase()}</span>
-                <span style={{fontFamily:"monospace",color:"#8B949E",fontSize:13}}>@{d.username}</span>
-                <span style={{color:"#484f58",fontSize:12,marginLeft:"auto"}}>{d.pass}</span>
-              </div>
-            ))}
-            <div style={{fontSize:11,color:"#484f58",marginTop:8}}>Tap any row to auto-fill</div>
-          </div>
+
         </div>
       </div>
     </div>

@@ -1106,31 +1106,60 @@ function AddMechanicModal({onClose,onCreated,garageId}){
       if(!newId){clearTimeout(timeout);setApiErr("Account created but ID not returned. Try again.");setSaving(false);return;}
       console.log("[AddMechanic] Auth user ready, id:",newId);
 
-      console.log("[AddMechanic] Inserting profile...");
+      console.log("[AddMechanic] Checking if profile exists for id:",newId);
+      // Check if profile already exists for this auth user
+      const existingProfileRes=await fetch(
+        `${supabaseUrl}/rest/v1/profiles?id=eq.${newId}&select=id`,{
+          headers:{"apikey":serviceKey,"Authorization":`Bearer ${serviceKey}`},
+        }
+      );
+      const existingProfiles=await existingProfileRes.json().catch(()=>[]);
+      const profileExists=Array.isArray(existingProfiles)&&existingProfiles.length>0;
+
+      console.log("[AddMechanic] Profile exists:",profileExists,"- will",profileExists?"UPDATE":"INSERT");
+
       // Insert profile via REST with service key to bypass RLS
-      const profileRes=await fetch(`${supabaseUrl}/rest/v1/profiles`,{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          "apikey":serviceKey,
-          "Authorization":`Bearer ${serviceKey}`,
-          "Prefer":"return=minimal",
-        },
-        body:JSON.stringify({
-          id:newId,
-          full_name:form.name.trim(),
-          initials:getInitials(form.name),
-          role:"mechanic",
-          username:uname,
-          auth_email:authEmail,
-          color:form.color||null,
-          garage_id:garageId,
-        }),
-      });
+      const profilePayload={
+        full_name:form.name.trim(),
+        initials:getInitials(form.name),
+        role:"mechanic",
+        username:uname,
+        auth_email:authEmail,
+        color:form.color||null,
+        garage_id:garageId,
+      };
+
+      let profileRes;
+      if(profileExists){
+        // Update existing orphaned profile
+        profileRes=await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${newId}`,{
+          method:"PATCH",
+          headers:{
+            "Content-Type":"application/json",
+            "apikey":serviceKey,
+            "Authorization":`Bearer ${serviceKey}`,
+            "Prefer":"return=minimal",
+          },
+          body:JSON.stringify(profilePayload),
+        });
+      }else{
+        // Fresh insert
+        profileRes=await fetch(`${supabaseUrl}/rest/v1/profiles`,{
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json",
+            "apikey":serviceKey,
+            "Authorization":`Bearer ${serviceKey}`,
+            "Prefer":"return=minimal",
+          },
+          body:JSON.stringify({id:newId,...profilePayload}),
+        });
+      }
+
       if(!profileRes.ok){
         const pd=await profileRes.json().catch(()=>({}));
         clearTimeout(timeout);
-        console.error("[AddMechanic] Profile insert failed:",pd);
+        console.error("[AddMechanic] Profile upsert failed:",pd);
         setApiErr(pd.message||pd.details||"Failed to create mechanic profile.");
         setSaving(false);return;
       }

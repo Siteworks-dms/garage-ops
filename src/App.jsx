@@ -1081,12 +1081,31 @@ function AddMechanicModal({onClose,onCreated,garageId}){
       const newId=signupData.id;
       if(!newId){setApiErr("Account created but ID not returned. Try again.");setSaving(false);return;}
 
-      // Insert profile — manager session is still intact
-      const{error:pe}=await supabase.from("profiles").insert({
-        id:newId,full_name:form.name.trim(),initials:getInitials(form.name),
-        role:"mechanic",username:uname,auth_email:authEmail,color:form.color||null
-      ,garage_id:garageId});
-      if(pe){setApiErr(pe.message);setSaving(false);return;}
+      // Insert profile via REST with service key to bypass RLS
+      const profileRes=await fetch(`${supabaseUrl}/rest/v1/profiles`,{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "apikey":serviceKey,
+          "Authorization":`Bearer ${serviceKey}`,
+          "Prefer":"return=minimal",
+        },
+        body:JSON.stringify({
+          id:newId,
+          full_name:form.name.trim(),
+          initials:getInitials(form.name),
+          role:"mechanic",
+          username:uname,
+          auth_email:authEmail,
+          color:form.color||null,
+          garage_id:garageId,
+        }),
+      });
+      if(!profileRes.ok){
+        const pd=await profileRes.json().catch(()=>({}));
+        setApiErr(pd.message||pd.details||"Failed to create mechanic profile.");
+        setSaving(false);return;
+      }
 
       setSuccess(`Done! ${form.name} can log in with @${uname}.`);
       setSaving(false);onCreated();

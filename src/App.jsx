@@ -1725,7 +1725,21 @@ export default function App(){
     });
     return()=>subscription.unsubscribe();
   },[]);
-  const logout=async()=>{await supabase.auth.signOut();setUser(null);window.location.href=window.location.origin;};
+  const logout=async()=>{
+    try{
+      // Set a hard timeout — if signOut takes more than 2s, force redirect anyway
+      const signOutPromise=supabase.auth.signOut();
+      const timeoutPromise=new Promise(resolve=>setTimeout(resolve,2000));
+      await Promise.race([signOutPromise,timeoutPromise]);
+    }catch(e){
+      // Ignore signOut errors — we're logging out regardless
+    }finally{
+      setUser(null);
+      // Clear all supabase localStorage keys to ensure clean state
+      Object.keys(localStorage).forEach(k=>{if(k.startsWith("sb-"))localStorage.removeItem(k);});
+      window.location.replace(window.location.origin);
+    }
+  };
   if(checking)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0D1117"}}><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16}}><div style={{width:36,height:36,border:"3px solid rgba(245,158,11,0.2)",borderTop:"3px solid #F59E0B",borderRadius:"50%",animation:"spin .7s linear infinite"}}/><div style={{color:"#6E7681",fontSize:14}}>LOADING…</div></div></div>;
   if(!user)return<LoginScreen onLogin={setUser}/>;
   if(user.role==="manager")return<ManagerDashboard user={user} onLogout={logout}/>;

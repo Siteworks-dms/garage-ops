@@ -1621,17 +1621,29 @@ function MechanicDashboard({user,onLogout}){
 
 export default function App(){
   const[user,setUser]=useState(null);const[checking,setChecking]=useState(true);
+
+  // Load profile AND garage name together — used on both initial load and session restore
+  const loadUserWithGarage=async(authUser)=>{
+    const{data:p}=await supabase.from("profiles").select("*").eq("id",authUser.id).single();
+    if(!p)return null;
+    let garageName="My Garage",garageSlug="";
+    if(p.garage_id){
+      const{data:g}=await supabase.from("garages").select("name,slug").eq("id",p.garage_id).single();
+      if(g){garageName=g.name;garageSlug=g.slug;}
+    }
+    return{...authUser,...p,garageName,garageSlug};
+  };
   useEffect(()=>{const el=document.createElement("style");el.textContent=GLOBAL_CSS;document.head.appendChild(el);return()=>document.head.removeChild(el);},[]);
   const isTV=new URLSearchParams(window.location.search).get("tv")==="1";const tvGarageId=new URLSearchParams(window.location.search).get("garage");
   if(isTV)return<TVDisplay/>;
   useEffect(()=>{
     supabase.auth.getSession().then(async({data:{session}})=>{
-      if(session?.user){const{data:p}=await supabase.from("profiles").select("*").eq("id",session.user.id).single();if(p)setUser({...session.user,...p});}
+      if(session?.user){const u=await loadUserWithGarage(session.user);if(u)setUser(u);}
       setChecking(false);
     });
     const{data:{subscription}}=supabase.auth.onAuthStateChange(async(event,session)=>{
       if(event==="SIGNED_OUT"){setUser(null);return;}
-      if(session?.user){const{data:p}=await supabase.from("profiles").select("*").eq("id",session.user.id).single();if(p)setUser({...session.user,...p});}
+      if(session?.user){const u=await loadUserWithGarage(session.user);if(u)setUser(u);}
     });
     return()=>subscription.unsubscribe();
   },[]);

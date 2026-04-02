@@ -1051,36 +1051,62 @@ function AddMechanicModal({onClose,onCreated,garageId}){
   const create=async()=>{
     const e=validate();if(Object.keys(e).length){setErrs(e);return;}
     setSaving(true);setApiErr("");setSuccess("");
+
+    // Hard timeout — never hang more than 20 seconds
+    const timeout=setTimeout(()=>{setApiErr("Request timed out. Please try again.");setSaving(false);},20000);
+
     try{
       const uname=form.username.toLowerCase().trim();
       const authEmail=usernameToEmail(uname);
+      console.log("[AddMechanic] Starting create for:",uname,"garageId:",garageId);
 
       // Check username not already taken
       const{data:ex}=await supabase.from("profiles").select("id").eq("username",uname).eq("garage_id",garageId);
-      if(ex&&ex.length>0){setApiErr("That username is already taken.");setSaving(false);return;}
+      if(ex&&ex.length>0){clearTimeout(timeout);setApiErr("That username is already taken.");setSaving(false);return;}
+      console.log("[AddMechanic] Username available");
 
       // Use Supabase Admin API with service role key — no emails sent, no rate limits
       const supabaseUrl=import.meta.env.VITE_SUPABASE_URL;
       const serviceKey=import.meta.env.VITE_SUPABASE_SERVICE_KEY;
       if(!serviceKey){setApiErr("Service key not configured. Add VITE_SUPABASE_SERVICE_KEY to your .env file.");setSaving(false);return;}
+      console.log("[AddMechanic] Calling Admin API signup for:",authEmail);
+      // Try to create the auth user
       const signupRes=await fetch(`${supabaseUrl}/auth/v1/admin/users`,{
         method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          "apikey":serviceKey,
-          "Authorization":`Bearer ${serviceKey}`,
-        },
-        body:JSON.stringify({
-          email:authEmail,
-          password:form.password,
-          email_confirm:true, // mark as confirmed — no email sent
-        }),
+        headers:{"Content-Type":"application/json","apikey":serviceKey,"Authorization":`Bearer ${serviceKey}`},
+        body:JSON.stringify({email:authEmail,password:form.password,email_confirm:true}),
       });
       const signupData=await signupRes.json();
-      if(!signupRes.ok){setApiErr(signupData.msg||signupData.message||signupData.error_description||"Failed to create account.");setSaving(false);return;}
-      const newId=signupData.id;
-      if(!newId){setApiErr("Account created but ID not returned. Try again.");setSaving(false);return;}
+      let newId=signupData.id;
 
+      if(!signupRes.ok){
+        const errMsg=(signupData.msg||signupData.message||signupData.error_description||"").toLowerCase();
+        if(errMsg.includes("already registered")||errMsg.includes("already been registered")){
+          // Auth user exists from a previous failed attempt — look up their ID
+          const listRes=await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1000`,{
+            headers:{"apikey":serviceKey,"Authorization":`Bearer ${serviceKey}`},
+          });
+          const listData=await listRes.json();
+          const existingUser=(listData.users||[]).find(u=>u.email===authEmail);
+          if(existingUser){
+            newId=existingUser.id;
+            // Update password in case it changed
+            await fetch(`${supabaseUrl}/auth/v1/admin/users/${newId}`,{
+              method:"PUT",
+              headers:{"Content-Type":"application/json","apikey":serviceKey,"Authorization":`Bearer ${serviceKey}`},
+              body:JSON.stringify({password:form.password}),
+            });
+          } else {
+            setApiErr("Account conflict. Please try a different username.");setSaving(false);return;
+          }
+        } else {
+          setApiErr(signupData.msg||signupData.message||signupData.error_description||"Failed to create account.");setSaving(false);return;
+        }
+      }
+      if(!newId){clearTimeout(timeout);setApiErr("Account created but ID not returned. Try again.");setSaving(false);return;}
+      console.log("[AddMechanic] Auth user ready, id:",newId);
+
+      console.log("[AddMechanic] Inserting profile...");
       // Insert profile via REST with service key to bypass RLS
       const profileRes=await fetch(`${supabaseUrl}/rest/v1/profiles`,{
         method:"POST",
@@ -1103,14 +1129,18 @@ function AddMechanicModal({onClose,onCreated,garageId}){
       });
       if(!profileRes.ok){
         const pd=await profileRes.json().catch(()=>({}));
+        clearTimeout(timeout);
+        console.error("[AddMechanic] Profile insert failed:",pd);
         setApiErr(pd.message||pd.details||"Failed to create mechanic profile.");
         setSaving(false);return;
       }
 
+      clearTimeout(timeout);
+      console.log("[AddMechanic] Profile created successfully!");
       setSuccess(`Done! ${form.name} can log in with @${uname}.`);
       setSaving(false);onCreated();
       setTimeout(()=>{setSuccess("");onClose();},3000);
-    }catch(err){setApiErr(err?.message??"Unexpected error. Please try again.");setSaving(false);}
+    }catch(err){clearTimeout(timeout);console.error("[AddMechanic] Error:",err);setApiErr(err?.message??"Unexpected error. Please try again.");setSaving(false);}
   };
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(3px)"}}>

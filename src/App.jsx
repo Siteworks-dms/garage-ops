@@ -634,8 +634,104 @@ function RegisterGarageModal({ onClose, onRegistered }) {
   );
 }
 
+
+// ── Find My Garage Modal ───────────────────────────────────────────────────────
+
+function FindGarageModal({ onClose, onFound }) {
+  const [username, setUsername] = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [result,   setResult]   = useState(null); // { garageName, slug }
+  const [error,    setError]    = useState("");
+
+  const lookup = async () => {
+    if (!username.trim()) return;
+    setLoading(true); setError(""); setResult(null);
+    try {
+      // Find the profile by username and join to garages
+      const { data, error: e } = await supabase
+        .from("profiles")
+        .select("username, garage_id, garages:garage_id(name, slug)")
+        .eq("username", username.toLowerCase().trim())
+        .single();
+
+      if (e || !data) {
+        setError("Username not found. Check the spelling and try again.");
+      } else if (!data.garages) {
+        setError("This account isn't linked to a garage yet. Contact your manager.");
+      } else {
+        setResult({ garageName: data.garages.name, slug: data.garages.slug });
+      }
+    } catch(e) {
+      setError("Unexpected error. Please try again.");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", display:"flex", alignItems:"center", justifyContent:"center", padding:16, zIndex:400, backdropFilter:"blur(6px)" }}>
+      <div className="slide-in" style={{ background:"#161B22", border:"1px solid rgba(255,255,255,0.08)", borderRadius:18, width:"100%", maxWidth:400, overflow:"hidden", boxShadow:"0 32px 80px rgba(0,0,0,0.7)" }}>
+        <div style={{ height:3, background:"linear-gradient(90deg,transparent,#10B981 30%,#06B6D4 70%,transparent)" }}/>
+        <div style={{ padding:"28px 24px 24px" }}>
+
+          <div style={{ textAlign:"center", marginBottom:24 }}>
+            <div style={{ fontSize:36, marginBottom:8 }}>🔍</div>
+            <div style={{ fontSize:20, fontWeight:700, letterSpacing:"0.06em" }}>FIND MY GARAGE</div>
+            <div style={{ fontSize:13, color:"#6E7681", marginTop:4 }}>Enter your username to look up your garage code</div>
+          </div>
+
+          {!result ? (
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <div>
+                <FieldLabel>YOUR USERNAME</FieldLabel>
+                <div style={{ position:"relative" }}>
+                  <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#555d65", fontSize:15, fontWeight:600, pointerEvents:"none" }}>@</span>
+                  <input
+                    value={username}
+                    onChange={e => setUsername(e.target.value.toLowerCase())}
+                    onKeyDown={e => e.key === "Enter" && lookup()}
+                    placeholder="your_username"
+                    autoCapitalize="none" autoCorrect="off" spellCheck="false"
+                    style={{ paddingLeft:28 }}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              {error && <div style={{ background:"rgba(239,68,68,0.09)", border:"1px solid rgba(239,68,68,0.28)", color:"#F87171", borderRadius:8, padding:"10px 14px", fontSize:13 }}>{error}</div>}
+              <Btn variant="green" onClick={lookup} disabled={loading || !username.trim()} style={{ width:"100%" }}>
+                {loading ? <><Spinner size={14}/>LOOKING UP…</> : "FIND MY GARAGE →"}
+              </Btn>
+            </div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <div style={{ background:"rgba(16,185,129,0.08)", border:"1px solid rgba(16,185,129,0.25)", borderRadius:12, padding:"20px 18px", textAlign:"center" }}>
+                <div style={{ fontSize:12, color:"#6E7681", letterSpacing:"0.1em", marginBottom:8 }}>YOUR GARAGE</div>
+                <div style={{ fontSize:22, fontWeight:700, color:"#E6EDF3", marginBottom:6 }}>{result.garageName}</div>
+                <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:"rgba(16,185,129,0.12)", border:"1px solid rgba(16,185,129,0.3)", borderRadius:8, padding:"8px 16px" }}>
+                  <span style={{ fontSize:13, color:"#6E7681" }}>Garage Code:</span>
+                  <span style={{ fontSize:16, fontWeight:700, color:"#10B981", fontFamily:"monospace", letterSpacing:"0.06em" }}>{result.slug}</span>
+                </div>
+                <div style={{ fontSize:12, color:"#555d65", marginTop:12 }}>Use this code on the login screen</div>
+              </div>
+              <Btn variant="primary" onClick={() => { onFound(result.slug); onClose(); }} style={{ width:"100%" }}>
+                USE THIS CODE →
+              </Btn>
+              <button onClick={() => { setResult(null); setUsername(""); setError(""); }} style={{ background:"none", border:"none", color:"#6E7681", fontSize:13, cursor:"pointer", fontFamily:"'Rajdhani',sans-serif", textAlign:"center" }}>
+                Try a different username
+              </button>
+            </div>
+          )}
+
+          <div style={{ marginTop:16, textAlign:"center" }}>
+            <button onClick={onClose} style={{ background:"none", border:"none", color:"#6E7681", fontSize:13, cursor:"pointer", fontFamily:"'Rajdhani',sans-serif" }}>← Back to Login</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LoginScreen({onLogin}){
-  const[garageCode,setGarageCode]=useState("");const[username,setUsername]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const[showForgot,setShowForgot]=useState(false);const[showRegister,setShowRegister]=useState(false);
+  const[garageCode,setGarageCode]=useState("");const[username,setUsername]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const[showForgot,setShowForgot]=useState(false);const[showRegister,setShowRegister]=useState(false);const[showFindGarage,setShowFindGarage]=useState(false);
 
   const handleLogin=async()=>{
     if(!garageCode||!username||!password)return;
@@ -685,6 +781,9 @@ function LoginScreen({onLogin}){
                 placeholder="e.g. mygarage"
                 style={{fontFamily:"monospace",letterSpacing:"0.08em",fontSize:15}}
               />
+              <div style={{display:"flex",justifyContent:"flex-end",marginTop:5}}>
+                <button onClick={()=>setShowFindGarage(true)} style={{background:"none",border:"none",color:"#10B981",fontSize:12,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",fontWeight:700,padding:0}}>Forgot garage code?</button>
+              </div>
             </div>
             <div>
               <FieldLabel>USERNAME</FieldLabel>
@@ -715,6 +814,7 @@ function LoginScreen({onLogin}){
       </div>
     </div>
     {showForgot&&<ForgotPasswordModal onClose={()=>setShowForgot(false)}/>}
+    {showFindGarage&&<FindGarageModal onClose={()=>setShowFindGarage(false)} onFound={slug=>{setGarageCode(slug);}}/>}
     {showRegister&&<RegisterGarageModal onClose={()=>setShowRegister(false)} onRegistered={(slug,uname)=>{setShowRegister(false);setGarageCode(slug);setUsername(uname);}}/>}
   </>);
 }

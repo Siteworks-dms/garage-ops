@@ -271,16 +271,11 @@ function TVDisplay(){
     setShowPinPrompt(false);
     window.location.href=window.location.origin;
   };
-  const garageSlugParam=new URLSearchParams(window.location.search).get("garage")||"";
-  const[garageInfo,setGarageInfo]=useState(null);
   const load=async()=>{
-    let mechQ=supabase.from("profiles").select("*").eq("role","mechanic").order("full_name");
-    let ordQ=supabase.from("work_orders").select("*").neq("status","Completed").order("created_at",{ascending:false});
-    if(garageSlugParam){
-      const{data:g}=await supabase.from("garages").select("id,name").eq("slug",garageSlugParam).single();
-      if(g){mechQ=mechQ.eq("garage_id",g.id);ordQ=ordQ.eq("garage_id",g.id);setGarageInfo(g);}
-    }
-    const[{data:m},{data:o}]=await Promise.all([mechQ,ordQ]);
+    const[{data:m},{data:o}]=await Promise.all([
+      supabase.from("profiles").select("*").eq("role","mechanic").order("full_name"),
+      supabase.from("work_orders").select("*").neq("status","Completed").order("created_at",{ascending:false}),
+    ]);
     setMechanics(m??[]);setOrders(o??[]);setLastUpdate(new Date());setLoading(false);
   };
   useEffect(()=>{load();const i=setInterval(load,60000);return()=>clearInterval(i);},[]);
@@ -297,7 +292,7 @@ function TVDisplay(){
           <div style={{display:"flex",alignItems:"center",justifyContent:"center",width:48,height:48,background:"rgba(245,158,11,0.1)",border:"1.5px solid rgba(245,158,11,0.3)",borderRadius:12}}>
             <svg width="26" height="26" viewBox="0 0 34 34" fill="none"><polygon points="17,3 31,10 31,24 17,31 3,24 3,10" stroke="#F59E0B" strokeWidth="1.5" strokeLinejoin="round" fill="none"/><circle cx="17" cy="17" r="4.5" stroke="#F59E0B" strokeWidth="1.5" fill="rgba(245,158,11,0.1)"/><line x1="17" y1="12.5" x2="17" y2="8" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="17" y1="21.5" x2="17" y2="26" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="12.5" y1="17" x2="8" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="21.5" y1="17" x2="26" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </div>
-          <div><div style={{fontSize:24,fontWeight:700}}>GARAGE<span style={{color:"#F59E0B"}}>OPS</span></div><div style={{fontSize:11,color:"#6E7681"}}>{garageInfo?garageInfo.name.toUpperCase()+" · ":""}WORKSHOP FLOOR DISPLAY</div></div>
+          <div><div style={{fontSize:24,fontWeight:700}}>GARAGE<span style={{color:"#F59E0B"}}>OPS</span></div><div style={{fontSize:11,color:"#6E7681"}}>WORKSHOP FLOOR DISPLAY</div></div>
         </div>
         <div style={{display:"flex",gap:12,alignItems:"center"}}>
           {[{label:"MECHANICS",value:mechanics.length,color:"#E6EDF3"},{label:"IN PROGRESS",value:tA,color:"#3B82F6"},{label:"PENDING",value:tP,color:"#F59E0B"},{label:"30+ DAYS",value:tL,color:tL>0?"#EF4444":"#555d65"}].map(s=><div key={s.label} style={{background:"#1C2333",border:"1px solid rgba(255,255,255,0.07)",borderRadius:10,padding:"8px 16px",textAlign:"center",minWidth:80}}><div style={{fontSize:10,color:"#6E7681",marginBottom:4}}>{s.label}</div><div style={{fontSize:26,fontWeight:700,color:s.color,lineHeight:1}}>{s.value}</div></div>)}
@@ -318,6 +313,67 @@ function TVDisplay(){
 }
 
 // ── Login ──────────────────────────────────────────────────────────────────────
+
+function LoginScreen({onLogin}){
+  const[username,setUsername]=useState("");
+  const[password,setPassword]=useState("");
+  const[error,setError]=useState("");
+  const[loading,setLoading]=useState(false);
+  const[showForgot,setShowForgot]=useState(false);
+
+  const handleLogin=async()=>{
+    if(!username||!password)return;
+    setLoading(true);setError("");
+    try{
+      const{data:profiles,error:le}=await supabase.from("profiles").select("id,auth_email,full_name,role,username,initials,color").eq("username",username.toLowerCase().trim());
+      if(le||!profiles||profiles.length===0){setError("Username not found. Check and try again.");setLoading(false);return;}
+      const profile=profiles[0];
+      if(!profile.auth_email){setError("Account not configured. Contact your manager.");setLoading(false);return;}
+      const{data,error:ae}=await supabase.auth.signInWithPassword({email:profile.auth_email,password});
+      if(ae){setError("Incorrect password. Please try again.");setLoading(false);return;}
+      onLogin({...data.user,...profile});
+    }catch{setError("Unexpected error. Please try again.");setLoading(false);}
+  };
+
+  return(<>
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"radial-gradient(ellipse at 50% 0%,#1a1200 0%,#0D1117 60%)",padding:16}}>
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",backgroundImage:"radial-gradient(circle,rgba(245,158,11,0.045) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
+      <div className="slide-in" style={{width:"100%",maxWidth:420,background:"#161B22",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,overflow:"hidden",boxShadow:"0 32px 100px rgba(0,0,0,0.6)"}}>
+        <div style={{height:3,background:"linear-gradient(90deg,transparent,#F59E0B 30%,#D97706 70%,transparent)"}}/>
+        <div style={{padding:"32px 24px 28px"}}>
+          <div style={{textAlign:"center",marginBottom:28}}>
+            <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:64,height:64,background:"radial-gradient(circle,rgba(245,158,11,0.15) 0%,rgba(245,158,11,0.04) 100%)",border:"1.5px solid rgba(245,158,11,0.35)",borderRadius:16,marginBottom:14}}>
+              <svg width="32" height="32" viewBox="0 0 34 34" fill="none"><polygon points="17,3 31,10 31,24 17,31 3,24 3,10" stroke="#F59E0B" strokeWidth="1.5" strokeLinejoin="round" fill="none"/><circle cx="17" cy="17" r="4.5" stroke="#F59E0B" strokeWidth="1.5" fill="rgba(245,158,11,0.1)"/><line x1="17" y1="12.5" x2="17" y2="8" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="17" y1="21.5" x2="17" y2="26" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="12.5" y1="17" x2="8" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="21.5" y1="17" x2="26" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </div>
+            <div style={{fontSize:28,fontWeight:700,letterSpacing:"0.1em"}}>GARAGE<span style={{color:"#F59E0B"}}>OPS</span></div>
+            <div style={{fontSize:12,color:"#6E7681",marginTop:4,letterSpacing:"0.1em"}}>WORK ORDER MANAGEMENT</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <div>
+              <FieldLabel>USERNAME</FieldLabel>
+              <div style={{position:"relative"}}>
+                <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:"#555d65",fontSize:15,fontWeight:600,pointerEvents:"none"}}>@</span>
+                <input value={username} autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck="false" onChange={e=>setUsername(e.target.value.toLowerCase())} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="your_username" style={{paddingLeft:28}} autoFocus/>
+              </div>
+            </div>
+            <div>
+              <FieldLabel>PASSWORD</FieldLabel>
+              <input type="password" value={password} autoComplete="current-password" onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Enter your password"/>
+            </div>
+            <ErrBanner msg={error}/>
+            <Btn variant="primary" onClick={handleLogin} disabled={loading||!username||!password} style={{width:"100%",padding:"14px",fontSize:16,marginTop:4}}>
+              {loading?<><Spinner size={16}/>SIGNING IN…</>:"SIGN IN  →"}
+            </Btn>
+            <button onClick={()=>setShowForgot(true)} style={{background:"none",border:"none",color:"#6E7681",fontSize:13,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",padding:"4px 0",textAlign:"center",width:"100%"}}>
+              Forgot password?
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {showForgot&&<ForgotPasswordModal onClose={()=>setShowForgot(false)}/>}
+  </>);
+}
 
 
 // ── Forgot Password Modal ──────────────────────────────────────────────────────
@@ -444,382 +500,6 @@ function ForgotPasswordModal({ onClose }) {
 }
 
 
-// ── Register Garage Modal ──────────────────────────────────────────────────────
-
-function RegisterGarageModal({ onClose, onRegistered }) {
-  const [step,         setStep]         = useState(1); // 1=garage info, 2=manager account, 3=success
-  const [garageName,   setGarageName]   = useState("");
-  const [garageCode,   setGarageCode]   = useState("");
-  const [codeManual,   setCodeManual]   = useState(false);
-  const [managerName,  setManagerName]  = useState("");
-  const [username,     setUsername]     = useState("");
-  const [password,     setPassword]     = useState("");
-  const [confirm,      setConfirm]      = useState("");
-  const [saving,       setSaving]       = useState(false);
-  const [error,        setError]        = useState("");
-  const [createdCode,  setCreatedCode]  = useState("");
-
-  // Auto-generate code from garage name
-  useEffect(() => {
-    if (codeManual) return;
-    const raw = garageName.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, "").slice(0, 16);
-    setGarageCode(raw || "");
-  }, [garageName, codeManual]);
-
-  const validateStep1 = () => {
-    if (!garageName.trim())           return "Garage name is required.";
-    if (!garageCode.trim())           return "Garage code is required.";
-    if (!/^[a-z0-9-]{3,20}$/.test(garageCode)) return "Code must be 3–20 chars: lowercase letters, numbers, hyphens only.";
-    return null;
-  };
-
-  const validateStep2 = () => {
-    if (!managerName.trim())              return "Manager full name is required.";
-    if (!username.trim())                 return "Username is required.";
-    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(username)) return "Username: 3–20 chars, letters/numbers/_ or -";
-    if (password.length < 6)             return "Password must be at least 6 characters.";
-    if (password !== confirm)            return "Passwords do not match.";
-    return null;
-  };
-
-  const handleNext = async () => {
-    setError("");
-    if (step === 1) {
-      const err = validateStep1(); if (err) { setError(err); return; }
-      // Check code not taken
-      setSaving(true);
-      const { data } = await supabase.from("garages").select("id").eq("slug", garageCode.toLowerCase().trim()).single();
-      setSaving(false);
-      if (data) { setError("That garage code is already taken. Choose a different one."); return; }
-      setStep(2);
-    } else if (step === 2) {
-      const err = validateStep2(); if (err) { setError(err); return; }
-      setSaving(true);
-      try {
-        // 1. Create garage
-        const { data: garage, error: ge } = await supabase.from("garages").insert({ name: garageName.trim(), slug: garageCode.toLowerCase().trim() }).select().single();
-        if (ge) { setError(ge.message); setSaving(false); return; }
-
-        // 2. Create manager auth account via Admin API
-        const authEmail = `garageops.${username.toLowerCase().trim()}@gmail.com`;
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const serviceKey  = import.meta.env.VITE_SUPABASE_SERVICE_KEY;
-        if (!serviceKey) { setError("Service key not configured. Add VITE_SUPABASE_SERVICE_KEY to your environment."); setSaving(false); return; }
-
-        const res = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "apikey": serviceKey, "Authorization": `Bearer ${serviceKey}` },
-          body: JSON.stringify({ email: authEmail, password, email_confirm: true }),
-        });
-        const signupData = await res.json();
-        if (!res.ok) { setError(signupData.message || signupData.msg || "Failed to create manager account."); setSaving(false); return; }
-        const newId = signupData.id;
-        if (!newId) { setError("Account created but ID not returned."); setSaving(false); return; }
-
-        // 3. Create manager profile
-        const { error: pe } = await supabase.from("profiles").insert({
-          id: newId, full_name: managerName.trim(), initials: getInitials(managerName),
-          role: "manager", username: username.toLowerCase().trim(),
-          auth_email: authEmail, garage_id: garage.id,
-        });
-        if (pe) { setError(pe.message); setSaving(false); return; }
-
-        setCreatedCode(garageCode.trim());
-        setStep(3);
-      } catch(e) { setError(e?.message ?? "Unexpected error. Please try again."); }
-      setSaving(false);
-    }
-  };
-
-  const stepDot = (n) => (
-    <div style={{ width:28, height:28, borderRadius:"50%", background:step>=n?"#F59E0B":"rgba(255,255,255,0.08)", border:`2px solid ${step>=n?"#F59E0B":"rgba(255,255,255,0.15)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color:step>=n?"#0D1117":"#6E7681", transition:"all .2s" }}>{n}</div>
-  );
-
-  return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", display:"flex", alignItems:"center", justifyContent:"center", padding:16, zIndex:400, backdropFilter:"blur(6px)" }}>
-      <div className="slide-in" style={{ background:"#161B22", border:"1px solid rgba(255,255,255,0.08)", borderRadius:18, width:"100%", maxWidth:460, overflow:"hidden", boxShadow:"0 32px 80px rgba(0,0,0,0.7)" }}>
-        <div style={{ height:3, background:"linear-gradient(90deg,transparent,#10B981 30%,#06B6D4 70%,transparent)" }}/>
-        <div style={{ padding:"28px 24px 24px" }}>
-
-          {/* Header */}
-          <div style={{ textAlign:"center", marginBottom:24 }}>
-            <div style={{ fontSize:28, marginBottom:8 }}>🏪</div>
-            <div style={{ fontSize:20, fontWeight:700, letterSpacing:"0.06em" }}>REGISTER YOUR GARAGE</div>
-            <div style={{ fontSize:12, color:"#6E7681", marginTop:4 }}>Set up GarageOPS for your business</div>
-          </div>
-
-          {/* Step indicators */}
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginBottom:24 }}>
-            {stepDot(1)}
-            <div style={{ flex:1, maxWidth:40, height:2, background:step>=2?"#F59E0B":"rgba(255,255,255,0.08)", transition:"background .2s" }}/>
-            {stepDot(2)}
-            <div style={{ flex:1, maxWidth:40, height:2, background:step>=3?"#F59E0B":"rgba(255,255,255,0.08)", transition:"background .2s" }}/>
-            {stepDot(3)}
-          </div>
-
-          {/* Step 1 — Garage Info */}
-          {step === 1 && (
-            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-              <div style={{ fontSize:12, fontWeight:700, color:"#8B949E", letterSpacing:"0.08em", marginBottom:4 }}>STEP 1 — GARAGE DETAILS</div>
-              <div>
-                <FieldLabel required>Garage / Business Name</FieldLabel>
-                <input value={garageName} onChange={e=>setGarageName(e.target.value)} placeholder="e.g. Smith Auto Repair"/>
-              </div>
-              <div>
-                <FieldLabel required>Garage Code (share this with your team)</FieldLabel>
-                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                  <input value={garageCode} onChange={e=>{setGarageCode(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""));setCodeManual(true);}} placeholder="SMITH-AUTO" style={{ fontFamily:"monospace", letterSpacing:"0.1em", fontSize:15 }} maxLength={16}/>
-                  {codeManual && <button onClick={()=>setCodeManual(false)} style={{ background:"none", border:"none", color:"#6E7681", fontSize:11, cursor:"pointer", whiteSpace:"nowrap", fontFamily:"'Rajdhani',sans-serif" }}>auto</button>}
-                </div>
-                <div style={{ fontSize:11, color:"#555d65", marginTop:4 }}>This is your unique login code. Letters, numbers and hyphens only.</div>
-              </div>
-              {error && <div style={{ fontSize:13, color:"#F87171", fontWeight:600 }}>{error}</div>}
-              <div style={{ display:"flex", gap:10, marginTop:4 }}>
-                <Btn variant="ghost" onClick={onClose} style={{ flex:1 }}>CANCEL</Btn>
-                <Btn variant="green" onClick={handleNext} disabled={saving||!garageName.trim()||!garageCode.trim()} style={{ flex:2 }}>
-                  {saving?<><Spinner size={14}/>CHECKING…</>:"NEXT →"}
-                </Btn>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2 — Manager Account */}
-          {step === 2 && (
-            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-              <div style={{ fontSize:12, fontWeight:700, color:"#8B949E", letterSpacing:"0.08em", marginBottom:4 }}>STEP 2 — MANAGER ACCOUNT</div>
-              <div style={{ background:"rgba(245,158,11,0.06)", border:"1px solid rgba(245,158,11,0.2)", borderRadius:8, padding:"8px 12px", fontSize:12, color:"#8B949E" }}>
-                Creating manager for <strong style={{ color:"#F59E0B" }}>{garageName}</strong> · Code: <strong style={{ color:"#10B981", fontFamily:"monospace" }}>{garageCode}</strong>
-              </div>
-              <div><FieldLabel required>Your Full Name</FieldLabel><input value={managerName} onChange={e=>setManagerName(e.target.value)} placeholder="e.g. John Smith"/></div>
-              <div>
-                <FieldLabel required>Username</FieldLabel>
-                <div style={{ position:"relative" }}>
-                  <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#555d65", fontSize:15, fontWeight:600, pointerEvents:"none" }}>@</span>
-                  <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g,""))} placeholder="your_username" autoCapitalize="none" style={{ paddingLeft:28 }}/>
-                </div>
-              </div>
-              <div><FieldLabel required>Password</FieldLabel><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 6 characters"/></div>
-              <div><FieldLabel required>Confirm Password</FieldLabel><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleNext()} placeholder="Re-enter password"/></div>
-              {error && <div style={{ fontSize:13, color:"#F87171", fontWeight:600 }}>{error}</div>}
-              <div style={{ display:"flex", gap:10 }}>
-                <Btn variant="ghost" onClick={()=>{setStep(1);setError("");}} style={{ flex:1 }}>← BACK</Btn>
-                <Btn variant="primary" onClick={handleNext} disabled={saving||!managerName.trim()||!username.trim()||!password||!confirm} style={{ flex:2 }}>
-                  {saving?<><Spinner size={14}/>CREATING…</>:"CREATE GARAGE"}
-                </Btn>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3 — Success */}
-          {step === 3 && (
-            <div style={{ textAlign:"center" }}>
-              <div style={{ fontSize:48, marginBottom:12 }}>🎉</div>
-              <div style={{ fontSize:18, fontWeight:700, color:"#10B981", marginBottom:8 }}>Garage Created!</div>
-              <div style={{ fontSize:13, color:"#8B949E", marginBottom:20, lineHeight:1.7 }}>
-                Your garage <strong style={{ color:"#E6EDF3" }}>{garageName}</strong> is ready.
-              </div>
-              <div style={{ background:"rgba(16,185,129,0.08)", border:"1px solid rgba(16,185,129,0.25)", borderRadius:12, padding:"20px 16px", marginBottom:20 }}>
-                <div style={{ fontSize:11, color:"#6E7681", letterSpacing:"0.1em", marginBottom:8 }}>YOUR GARAGE CODE</div>
-                <div style={{ fontSize:32, fontWeight:700, color:"#10B981", fontFamily:"monospace", letterSpacing:"0.15em", marginBottom:8 }}>{createdCode}</div>
-                <div style={{ fontSize:12, color:"#8B949E" }}>Share this code with your team so they can log in</div>
-              </div>
-              <Btn variant="primary" onClick={()=>onRegistered(createdCode, username)} style={{ width:"100%" }}>
-                GO TO LOGIN →
-              </Btn>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-// ── Find My Garage Modal ───────────────────────────────────────────────────────
-
-function FindGarageModal({ onClose, onFound }) {
-  const [username, setUsername] = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [result,   setResult]   = useState(null); // { garageName, slug }
-  const [error,    setError]    = useState("");
-
-  const lookup = async () => {
-    if (!username.trim()) return;
-    setLoading(true); setError(""); setResult(null);
-    try {
-      // Find the profile by username and join to garages
-      const { data, error: e } = await supabase
-        .from("profiles")
-        .select("username, garage_id, garages:garage_id(name, slug)")
-        .eq("username", username.toLowerCase().trim())
-        .single();
-
-      if (e || !data) {
-        setError("Username not found. Check the spelling and try again.");
-      } else if (!data.garages) {
-        setError("This account isn't linked to a garage yet. Contact your manager.");
-      } else {
-        setResult({ garageName: data.garages.name, slug: data.garages.slug });
-      }
-    } catch(e) {
-      setError("Unexpected error. Please try again.");
-    }
-    setLoading(false);
-  };
-
-  return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", display:"flex", alignItems:"center", justifyContent:"center", padding:16, zIndex:400, backdropFilter:"blur(6px)" }}>
-      <div className="slide-in" style={{ background:"#161B22", border:"1px solid rgba(255,255,255,0.08)", borderRadius:18, width:"100%", maxWidth:400, overflow:"hidden", boxShadow:"0 32px 80px rgba(0,0,0,0.7)" }}>
-        <div style={{ height:3, background:"linear-gradient(90deg,transparent,#10B981 30%,#06B6D4 70%,transparent)" }}/>
-        <div style={{ padding:"28px 24px 24px" }}>
-
-          <div style={{ textAlign:"center", marginBottom:24 }}>
-            <div style={{ fontSize:36, marginBottom:8 }}>🔍</div>
-            <div style={{ fontSize:20, fontWeight:700, letterSpacing:"0.06em" }}>FIND MY GARAGE</div>
-            <div style={{ fontSize:13, color:"#6E7681", marginTop:4 }}>Enter your username to look up your garage code</div>
-          </div>
-
-          {!result ? (
-            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-              <div>
-                <FieldLabel>YOUR USERNAME</FieldLabel>
-                <div style={{ position:"relative" }}>
-                  <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#555d65", fontSize:15, fontWeight:600, pointerEvents:"none" }}>@</span>
-                  <input
-                    value={username}
-                    onChange={e => setUsername(e.target.value.toLowerCase())}
-                    onKeyDown={e => e.key === "Enter" && lookup()}
-                    placeholder="your_username"
-                    autoCapitalize="none" autoCorrect="off" spellCheck="false"
-                    style={{ paddingLeft:28 }}
-                    autoFocus
-                  />
-                </div>
-              </div>
-              {error && <div style={{ background:"rgba(239,68,68,0.09)", border:"1px solid rgba(239,68,68,0.28)", color:"#F87171", borderRadius:8, padding:"10px 14px", fontSize:13 }}>{error}</div>}
-              <Btn variant="green" onClick={lookup} disabled={loading || !username.trim()} style={{ width:"100%" }}>
-                {loading ? <><Spinner size={14}/>LOOKING UP…</> : "FIND MY GARAGE →"}
-              </Btn>
-            </div>
-          ) : (
-            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-              <div style={{ background:"rgba(16,185,129,0.08)", border:"1px solid rgba(16,185,129,0.25)", borderRadius:12, padding:"20px 18px", textAlign:"center" }}>
-                <div style={{ fontSize:12, color:"#6E7681", letterSpacing:"0.1em", marginBottom:8 }}>YOUR GARAGE</div>
-                <div style={{ fontSize:22, fontWeight:700, color:"#E6EDF3", marginBottom:6 }}>{result.garageName}</div>
-                <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:"rgba(16,185,129,0.12)", border:"1px solid rgba(16,185,129,0.3)", borderRadius:8, padding:"8px 16px" }}>
-                  <span style={{ fontSize:13, color:"#6E7681" }}>Garage Code:</span>
-                  <span style={{ fontSize:16, fontWeight:700, color:"#10B981", fontFamily:"monospace", letterSpacing:"0.06em" }}>{result.slug}</span>
-                </div>
-                <div style={{ fontSize:12, color:"#555d65", marginTop:12 }}>Use this code on the login screen</div>
-              </div>
-              <Btn variant="primary" onClick={() => { onFound(result.slug); onClose(); }} style={{ width:"100%" }}>
-                USE THIS CODE →
-              </Btn>
-              <button onClick={() => { setResult(null); setUsername(""); setError(""); }} style={{ background:"none", border:"none", color:"#6E7681", fontSize:13, cursor:"pointer", fontFamily:"'Rajdhani',sans-serif", textAlign:"center" }}>
-                Try a different username
-              </button>
-            </div>
-          )}
-
-          <div style={{ marginTop:16, textAlign:"center" }}>
-            <button onClick={onClose} style={{ background:"none", border:"none", color:"#6E7681", fontSize:13, cursor:"pointer", fontFamily:"'Rajdhani',sans-serif" }}>← Back to Login</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LoginScreen({onLogin}){
-  const[garageCode,setGarageCode]=useState("");const[username,setUsername]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const[showForgot,setShowForgot]=useState(false);const[showRegister,setShowRegister]=useState(false);const[showFindGarage,setShowFindGarage]=useState(false);
-
-  const handleLogin=async()=>{
-    if(!garageCode||!username||!password)return;
-    setLoading(true);setError("");
-    try{
-      // 1. Look up the garage by slug
-      const{data:garage,error:ge}=await supabase.from("garages").select("id,name,slug").eq("slug",garageCode.toLowerCase().trim()).single();
-      if(ge||!garage){setError("Garage code not found. Check and try again.");setLoading(false);return;}
-
-      // 2. Look up profile by username + garage_id
-      const{data:profiles,error:le}=await supabase.from("profiles").select("id,auth_email,full_name,role,username,initials,color,garage_id,tv_pin").eq("username",username.toLowerCase().trim()).eq("garage_id",garage.id);
-      if(le||!profiles||profiles.length===0){setError("Username not found in this garage.");setLoading(false);return;}
-      const profile=profiles[0];
-      if(!profile.auth_email){setError("Account not configured. Contact your manager.");setLoading(false);return;}
-
-      // 3. Sign in
-      const{data,error:ae}=await supabase.auth.signInWithPassword({email:profile.auth_email,password});
-      if(ae){setError("Incorrect password. Please try again.");setLoading(false);return;}
-
-      onLogin({...data.user,...profile,garageName:garage.name,garageSlug:garage.slug});
-    }catch{setError("Unexpected error. Please try again.");setLoading(false);}
-  };
-
-
-
-  return(<>
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"radial-gradient(ellipse at 50% 0%,#1a1200 0%,#0D1117 60%)",padding:16}}>
-      <div style={{position:"fixed",inset:0,pointerEvents:"none",backgroundImage:"radial-gradient(circle,rgba(245,158,11,0.045) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
-      <div className="slide-in" style={{width:"100%",maxWidth:420,background:"#161B22",border:"1px solid rgba(255,255,255,0.08)",borderRadius:18,overflow:"hidden",boxShadow:"0 32px 100px rgba(0,0,0,0.6)"}}>
-        <div style={{height:3,background:"linear-gradient(90deg,transparent,#F59E0B 30%,#D97706 70%,transparent)"}}/>
-        <div style={{padding:"32px 24px 28px"}}>
-          <div style={{textAlign:"center",marginBottom:28}}>
-            <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:64,height:64,background:"radial-gradient(circle,rgba(245,158,11,0.15) 0%,rgba(245,158,11,0.04) 100%)",border:"1.5px solid rgba(245,158,11,0.35)",borderRadius:16,marginBottom:14}}>
-              <svg width="32" height="32" viewBox="0 0 34 34" fill="none"><polygon points="17,3 31,10 31,24 17,31 3,24 3,10" stroke="#F59E0B" strokeWidth="1.5" strokeLinejoin="round" fill="none"/><circle cx="17" cy="17" r="4.5" stroke="#F59E0B" strokeWidth="1.5" fill="rgba(245,158,11,0.1)"/><line x1="17" y1="12.5" x2="17" y2="8" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="17" y1="21.5" x2="17" y2="26" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="12.5" y1="17" x2="8" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="21.5" y1="17" x2="26" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            </div>
-            <div style={{fontSize:28,fontWeight:700,letterSpacing:"0.1em"}}>GARAGE<span style={{color:"#F59E0B"}}>OPS</span></div>
-            <div style={{fontSize:12,color:"#6E7681",marginTop:4,letterSpacing:"0.1em"}}>WORK ORDER MANAGEMENT</div>
-          </div>
-          <div style={{display:"flex",flexDirection:"column",gap:14}}>
-            <div>
-              <FieldLabel>GARAGE CODE</FieldLabel>
-              <input
-                value={garageCode}
-                autoCapitalize="none" autoCorrect="off" spellCheck="false"
-                onChange={e=>setGarageCode(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""))}
-                onKeyDown={e=>e.key==="Enter"&&handleLogin()}
-                placeholder="e.g. mygarage"
-                style={{fontFamily:"monospace",letterSpacing:"0.08em",fontSize:15}}
-              />
-              <div style={{display:"flex",justifyContent:"flex-end",marginTop:5}}>
-                <button onClick={()=>setShowFindGarage(true)} style={{background:"none",border:"none",color:"#10B981",fontSize:12,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",fontWeight:700,padding:0}}>Forgot garage code?</button>
-              </div>
-            </div>
-            <div>
-              <FieldLabel>USERNAME</FieldLabel>
-              <div style={{position:"relative"}}>
-                <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:"#555d65",fontSize:15,fontWeight:600,pointerEvents:"none"}}>@</span>
-                <input value={username} autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck="false" onChange={e=>setUsername(e.target.value.toLowerCase())} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="your_username" style={{paddingLeft:28}}/>
-              </div>
-            </div>
-            <div>
-              <FieldLabel>PASSWORD</FieldLabel>
-              <input type="password" value={password} autoComplete="current-password" onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Enter your password"/>
-            </div>
-            <ErrBanner msg={error}/>
-            <Btn variant="primary" onClick={handleLogin} disabled={loading||!garageCode||!username||!password} style={{width:"100%",padding:"14px",fontSize:16,marginTop:4}}>
-              {loading?<><Spinner size={16}/>SIGNING IN…</>:"SIGN IN  →"}
-            </Btn>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}>
-              <button onClick={()=>setShowForgot(true)} style={{background:"none",border:"none",color:"#6E7681",fontSize:13,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",padding:"4px 0"}}>
-                Forgot password?
-              </button>
-              <button onClick={()=>setShowRegister(true)} style={{background:"none",border:"none",color:"#F59E0B",fontSize:13,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",padding:"4px 0",fontWeight:700}}>
-                Register New Garage →
-              </button>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-    {showForgot&&<ForgotPasswordModal onClose={()=>setShowForgot(false)}/>}
-    {showFindGarage&&<FindGarageModal onClose={()=>setShowFindGarage(false)} onFound={slug=>{setGarageCode(slug);}}/>}
-    {showRegister&&<RegisterGarageModal onClose={()=>setShowRegister(false)} onRegistered={(slug,uname)=>{setShowRegister(false);setGarageCode(slug);setUsername(uname);}}/>}
-  </>);
-}
-
-
 // ── Change Password Modal ──────────────────────────────────────────────────────
 
 function ChangePasswordModal({ onClose }) {
@@ -901,7 +581,7 @@ function TopNav({user,onLogout,unreadCount=0,onTVOpen,onChangePassword}){
   return(
     <div style={{height:54,background:"#161B22",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",alignItems:"center",padding:"0 14px",gap:10,position:"sticky",top:0,zIndex:50}}>
       <svg width="20" height="20" viewBox="0 0 34 34" fill="none"><polygon points="17,3 31,10 31,24 17,31 3,24 3,10" stroke="#F59E0B" strokeWidth="1.5" strokeLinejoin="round" fill="none"/><circle cx="17" cy="17" r="4.5" stroke="#F59E0B" strokeWidth="1.5" fill="rgba(245,158,11,0.1)"/><line x1="17" y1="12.5" x2="17" y2="8" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="17" y1="21.5" x2="17" y2="26" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="12.5" y1="17" x2="8" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="21.5" y1="17" x2="26" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/></svg>
-      <div><div style={{fontWeight:700,fontSize:15,letterSpacing:"0.07em"}}>GARAGE<span style={{color:"#F59E0B"}}>OPS</span></div>{user.garageName&&<div style={{fontSize:9,color:"#6E7681",letterSpacing:"0.08em",marginTop:-2}}>{user.garageName}</div>}</div>
+      <div style={{fontWeight:700,fontSize:15,letterSpacing:"0.07em"}}>GARAGE<span style={{color:"#F59E0B"}}>OPS</span></div>
       <div style={{background:user.role==="manager"?"rgba(245,158,11,0.1)":"rgba(59,130,246,0.1)",color:user.role==="manager"?"#F59E0B":"#3B82F6",border:`1px solid ${user.role==="manager"?"rgba(245,158,11,0.3)":"rgba(59,130,246,0.3)"}`,borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,letterSpacing:"0.1em"}}>{user.role.toUpperCase()}</div>
       <div style={{flex:1}}/>
       {unreadCount>0&&<div style={{background:"#EF4444",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#fff"}}>{unreadCount>9?"9+":unreadCount}</div>}
@@ -956,7 +636,7 @@ function MessagingPanel({currentUser,mechanics}){
     if(!body.trim()||sending)return;if(isM&&!sel)return;setSending(true);
     const rid=isM?sel.id:msgs.find(m=>m.sender_id!==currentUser.id)?.sender_id??null;
     if(!rid){setSending(false);return;}
-    await supabase.from("messages").insert({sender_id:currentUser.id,receiver_id:rid,body:body.trim(),garage_id:currentUser.garage_id});
+    await supabase.from("messages").insert({sender_id:currentUser.id,receiver_id:rid,body:body.trim()});
     setBody("");setSending(false);
   };
   const uc=id=>allMsgs.filter(m=>m.sender_id===id&&m.receiver_id===currentUser.id&&!m.is_read).length;
@@ -1144,7 +824,7 @@ function ConfirmModal({title,body,confirmLabel,confirmVariant="danger",onConfirm
 
 // ── Add Mechanic Modal (username-based) ────────────────────────────────────────
 
-function AddMechanicModal({onClose,onCreated,garageId}){
+function AddMechanicModal({onClose,onCreated}){
   const[form,setForm]=useState({name:"",username:"",password:"",confirm:"",color:MECHANIC_COLORS[0].value});const[errs,setErrs]=useState({});const[saving,setSaving]=useState(false);const[apiErr,setApiErr]=useState("");const[success,setSuccess]=useState("");
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const validate=()=>{const e={};if(!form.name.trim())e.name="Required";if(!form.username.trim())e.username="Required";else if(!isValidUsername(form.username))e.username="3–20 chars: letters, numbers, _ or -";if(!form.password)e.password="Required";else if(form.password.length<6)e.password="Min 6 characters";if(form.confirm!==form.password)e.confirm="Passwords do not match";return e;};
@@ -1161,7 +841,7 @@ function AddMechanicModal({onClose,onCreated,garageId}){
       console.log("[AddMechanic] Starting create for:",uname,"garageId:",garageId);
 
       // Check username not already taken
-      const{data:ex}=await supabase.from("profiles").select("id").eq("username",uname).eq("garage_id",garageId);
+      const{data:ex}=await supabase.from("profiles").select("id").eq("username",uname);
       if(ex&&ex.length>0){clearTimeout(timeout);setApiErr("That username is already taken.");setSaving(false);return;}
       console.log("[AddMechanic] Username available");
 
@@ -1226,7 +906,7 @@ function AddMechanicModal({onClose,onCreated,garageId}){
         username:uname,
         auth_email:authEmail,
         color:form.color||null,
-        garage_id:garageId,
+        
       };
 
       let profileRes;
@@ -1610,9 +1290,9 @@ function ManagerDashboard({user,onLogout}){
   const[saving,setSaving]=useState(false);const[deleting,setDeleting]=useState(false);const[err,setErr]=useState("");
   const[showAdd,setShowAdd]=useState(false);const[selMech,setSelMech]=useState(null);const[delMech,setDelMech]=useState(false);const[unread,setUnread]=useState(0);const[showChangePwd,setShowChangePwd]=useState(false);const[selResetMech,setSelResetMech]=useState(null);
 
-  const loadOrders   =async()=>{const{data,error}=await supabase.from("work_orders").select("*").eq("garage_id",user.garage_id).order("created_at",{ascending:false});if(error)setErr(error.message);else setOrders(data??[]);};
-  const loadMechanics=async()=>{const{data}=await supabase.from("profiles").select("*").eq("role","mechanic").eq("garage_id",user.garage_id);setMechanics(data??[]);};
-  const loadUnread   =async()=>{const{count}=await supabase.from("messages").select("*",{count:"exact",head:true}).eq("receiver_id",user.id).eq("is_read",false).eq("garage_id",user.garage_id);setUnread(count??0);};
+  const loadOrders   =async()=>{const{data,error}=await supabase.from("work_orders").select("*").order("created_at",{ascending:false});if(error)setErr(error.message);else setOrders(data??[]);};
+  const loadMechanics=async()=>{const{data}=await supabase.from("profiles").select("*").eq("role","mechanic");setMechanics(data??[]);};
+  const loadUnread   =async()=>{const{count}=await supabase.from("messages").select("*",{count:"exact",head:true}).eq("receiver_id",user.id).eq("is_read",false);setUnread(count??0);};
 
   useEffect(()=>{setLoading(true);Promise.all([loadOrders(),loadMechanics(),loadUnread()]).finally(()=>setLoading(false));},[]);
   useEffect(()=>{const ch=supabase.channel("mgr-ur").on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`receiver_id=eq.${user.id}`},()=>loadUnread()).subscribe();return()=>supabase.removeChannel(ch);},[]);
@@ -1622,9 +1302,9 @@ function ManagerDashboard({user,onLogout}){
   const handleSave=async(form)=>{
     setSaving(true);setErr("");
     try{
-      const pl={customer:form.customer,make:form.make,model:form.model,year:form.year,vin:form.vin,task:form.task,status:form.status,mechanic_id:form.mechanic_id||null,color:form.color||null,date_received:form.date_received||null,date_assigned:form.date_assigned||null,garage_id:user.garage_id};
+      const pl={customer:form.customer,make:form.make,model:form.model,year:form.year,vin:form.vin,task:form.task,status:form.status,mechanic_id:form.mechanic_id||null,color:form.color||null,date_received:form.date_received||null,date_assigned:form.date_assigned||null};
       if(modal==="create"){
-        const{error}=await supabase.from("work_orders").insert({...pl,created_by:user.id,garage_id:user.garage_id});
+        const{error}=await supabase.from("work_orders").insert({...pl,created_by:user.id});
         if(error){setErr(error.message);setSaving(false);return;}
       }else{
         const{error}=await supabase.from("work_orders").update({...pl,updated_at:todayStr()}).eq("id",form.id);
@@ -1666,15 +1346,9 @@ function ManagerDashboard({user,onLogout}){
   return(
     <div style={{background:"#0D1117",minHeight:"100vh",paddingBottom:64}}>
       {showChangePwd&&<ChangePasswordModal onClose={()=>setShowChangePwd(false)}/>}
-      <TopNav user={user} onLogout={onLogout} unreadCount={unread} onTVOpen={()=>window.open(window.location.origin+"?tv=1&garage="+(user.garageSlug||""),"_blank")} onChangePassword={()=>setShowChangePwd(true)}/>
+      <TopNav user={user} onLogout={onLogout} unreadCount={unread} onTVOpen={()=>window.open(window.location.origin+"?tv=1","_blank")} onChangePassword={()=>setShowChangePwd(true)}/>
       <div className="page-pad" style={{maxWidth:1600,margin:"0 auto"}}>
-        {/* Garage header */}
-        <div style={{marginBottom:20,paddingBottom:16,borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
-          <div style={{fontSize:22,fontWeight:700,letterSpacing:"0.04em",color:"#E6EDF3"}}>{user.garageName||"My Garage"}</div>
-          <div style={{fontSize:11,color:"#484f58",marginTop:3,letterSpacing:"0.08em"}}>
-            Powered by <span style={{color:"#F59E0B",fontWeight:700}}>Garage</span><span style={{color:"#E6EDF3",fontWeight:700}}>OPS</span>
-          </div>
-        </div>
+        
         <ErrBanner msg={err}/>
         {tab==="orders"&&<><StatsCards orders={orders}/><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={()=>{setSaving(false);setErr("");setModal("create");}} onEdit={o=>{setSaving(false);setErr("");setSel(o);setModal("edit");}} onDelete={o=>{setSel(o);setModal("delete");}}/></>}
         {tab==="team"&&<><MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={()=>setShowAdd(true)} onDelete={m=>setSelMech(m)} onColorChange={(id,color)=>setMechanics(prev=>prev.map(m=>m.id===id?{...m,color}:m))} onResetPwd={m=>setSelResetMech(m)}/><TVPinSettings userId={user.id}/></>}
@@ -1694,7 +1368,7 @@ function ManagerDashboard({user,onLogout}){
       </div>
       {(modal==="create"||modal==="edit")&&<OrderModal mode={modal} order={sel} mechanics={mechanics} onSave={handleSave} onClose={closeOrder} saving={saving}/>}
       {modal==="delete"&&<ConfirmModal title="Delete Work Order" body={<>Delete <strong style={{color:"#F59E0B"}}>{sel?.order_number}</strong> for <strong style={{color:"#E6EDF3"}}>{sel?.customer}</strong>? This cannot be undone.</>} confirmLabel="DELETE ORDER" onConfirm={handleDelOrder} onClose={closeOrder} loading={deleting}/>}
-      {showAdd&&<AddMechanicModal garageId={user.garage_id} onClose={()=>setShowAdd(false)} onCreated={()=>loadMechanics()}/>}
+      {showAdd&&<AddMechanicModal onClose={()=>setShowAdd(false)} onCreated={()=>loadMechanics()}/>}
       {selResetMech&&<ResetMechanicPasswordModal mechanic={selResetMech} onClose={()=>setSelResetMech(null)}/>}
       {selMech&&<ConfirmModal title="Remove Mechanic" body={<>Remove <strong style={{color:"#E6EDF3"}}>{selMech.full_name}</strong> (@{selMech.username})? {orders.filter(o=>o.mechanic_id===selMech.id).length>0&&<span style={{color:"#D97706"}}>⚠ Their orders will be unassigned. </span>}Cannot be undone.</>} confirmLabel="REMOVE MECHANIC" onConfirm={handleDelMech} onClose={()=>setSelMech(null)} loading={delMech}/>}
     </div>
@@ -1706,10 +1380,10 @@ function ManagerDashboard({user,onLogout}){
 function MechanicDashboard({user,onLogout}){
   const[orders,setOrders]=useState([]);const[loading,setLoading]=useState(true);const[dbErr,setDbErr]=useState("");const[tab,setTab]=useState("orders");const[unread,setUnread]=useState(0);const[mgr,setMgr]=useState(null);const[filterSt,setFilterSt]=useState("All");const[showChangePwd,setShowChangePwd]=useState(false);
 
-  const loadOrders=async()=>{setLoading(true);const{data,error}=await supabase.from("work_orders").select("*").eq("mechanic_id",user.id).eq("garage_id",user.garage_id).order("created_at",{ascending:false});if(error)setDbErr(error.message);else setOrders(data??[]);setLoading(false);};
-  const loadUnread=async()=>{const{count}=await supabase.from("messages").select("*",{count:"exact",head:true}).eq("receiver_id",user.id).eq("is_read",false).eq("garage_id",user.garage_id);setUnread(count??0);};
+  const loadOrders=async()=>{setLoading(true);const{data,error}=await supabase.from("work_orders").select("*").eq("mechanic_id",user.id).order("created_at",{ascending:false});if(error)setDbErr(error.message);else setOrders(data??[]);setLoading(false);};
+  const loadUnread=async()=>{const{count}=await supabase.from("messages").select("*",{count:"exact",head:true}).eq("receiver_id",user.id).eq("is_read",false);setUnread(count??0);};
 
-  useEffect(()=>{loadOrders();loadUnread();supabase.from("profiles").select("*").eq("role","manager").eq("garage_id",user.garage_id).single().then(({data})=>setMgr(data));},[]);
+  useEffect(()=>{loadOrders();loadUnread();supabase.from("profiles").select("*").eq("role","manager").single().then(({data})=>setMgr(data));},[]);
   useEffect(()=>{const ch=supabase.channel("mech-ur").on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`receiver_id=eq.${user.id}`},()=>loadUnread()).subscribe();return()=>supabase.removeChannel(ch);},[]);
 
   const handleStatus=async(id,status)=>{
@@ -1721,7 +1395,7 @@ function MechanicDashboard({user,onLogout}){
       const{data:manager}=await supabase.from("profiles").select("id").eq("role","manager").single();if(!manager)return;
       const cs=order.color?` ${order.color}`:"",days=daysOnLot(order.date_received),dt=new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
       const body=`✅ Work order ${order.order_number} has been completed.\n\nCustomer: ${order.customer}\nVehicle: ${order.year}${cs} ${order.make} ${order.model}\nVIN: ${order.vin}\n${days!==null?`Days on lot: ${days}\n`:""}Completed by: ${user.full_name} (@${user.username??"—"})\nDate: ${dt}`;
-      await supabase.from("messages").insert({sender_id:user.id,receiver_id:manager.id,body,garage_id:user.garage_id});
+      await supabase.from("messages").insert({sender_id:user.id,receiver_id:manager.id,body});
     }
   };
 
@@ -1804,12 +1478,7 @@ export default function App(){
   const loadUserWithGarage=async(authUser)=>{
     const{data:p}=await supabase.from("profiles").select("*").eq("id",authUser.id).single();
     if(!p)return null;
-    let garageName="My Garage",garageSlug="";
-    if(p.garage_id){
-      const{data:g}=await supabase.from("garages").select("name,slug").eq("id",p.garage_id).single();
-      if(g){garageName=g.name;garageSlug=g.slug;}
-    }
-    return{...authUser,...p,garageName,garageSlug};
+    return{...authUser,...p};
   };
   useEffect(()=>{const el=document.createElement("style");el.textContent=GLOBAL_CSS;document.head.appendChild(el);return()=>document.head.removeChild(el);},[]);
   const isTV=new URLSearchParams(window.location.search).get("tv")==="1";const tvGarageId=new URLSearchParams(window.location.search).get("garage");

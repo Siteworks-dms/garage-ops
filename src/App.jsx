@@ -964,12 +964,20 @@ function AddMechanicModal({onClose,onCreated}){
           <div>
             <FieldLabel required>Account Type</FieldLabel>
             <div style={{display:"flex",gap:8}}>
-              {["mechanic","manager"].map(r=>(
-                <button key={r} type="button" onClick={()=>set("role",r)}
-                  style={{flex:1,padding:"10px 8px",borderRadius:8,border:`2px solid ${form.role===r?(r==="manager"?"#F59E0B":"#3B82F6"):"rgba(255,255,255,0.08)"}`,background:form.role===r?(r==="manager"?"rgba(245,158,11,0.12)":"rgba(59,130,246,0.12)"):"rgba(255,255,255,0.03)",color:form.role===r?(r==="manager"?"#F59E0B":"#3B82F6"):"#6E7681",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",letterSpacing:"0.06em",touchAction:"manipulation",transition:"all .15s"}}>
-                  {r==="manager"?"👔 MANAGER":"🔧 MECHANIC"}
-                </button>
-              ))}
+              <button type="button" onClick={()=>set("role","mechanic")}
+                style={{flex:1,padding:"10px 8px",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",touchAction:"manipulation",
+                  border:form.role==="mechanic"?"2px solid #3B82F6":"2px solid rgba(255,255,255,0.08)",
+                  background:form.role==="mechanic"?"rgba(59,130,246,0.12)":"rgba(255,255,255,0.03)",
+                  color:form.role==="mechanic"?"#3B82F6":"#6E7681"}}>
+                🔧 MECHANIC
+              </button>
+              <button type="button" onClick={()=>set("role","manager")}
+                style={{flex:1,padding:"10px 8px",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",touchAction:"manipulation",
+                  border:form.role==="manager"?"2px solid #F59E0B":"2px solid rgba(255,255,255,0.08)",
+                  background:form.role==="manager"?"rgba(245,158,11,0.12)":"rgba(255,255,255,0.03)",
+                  color:form.role==="manager"?"#F59E0B":"#6E7681"}}>
+                👔 MANAGER
+              </button>
             </div>
             {form.role==="manager"&&<div style={{fontSize:11,color:"#F59E0B",marginTop:5}}>⚠ Manager accounts have full access to all orders, team, and settings.</div>}
           </div>

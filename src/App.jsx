@@ -29,8 +29,8 @@ const MECHANIC_COLORS = [
 // Get a mechanic's color — use stored color or fall back to hash-based palette
 function getMechColor(mechanic) {
   if (mechanic?.color) return mechanic.color;
-  const palette = MECHANIC_COLORS.map(c => c.value);
-  return palette[(mechanic?.full_name?.charCodeAt(0) || 0) % palette.length];
+  const fallbacks=["#3B82F6","#8B5CF6","#10B981","#F59E0B","#EF4444","#EC4899","#06B6D4","#F97316","#84CC16","#6366F1","#F43F5E","#14B8A6"];
+  return fallbacks[(mechanic?.full_name?.charCodeAt(0)||0)%fallbacks.length];
 }
 
 const GLOBAL_CSS = `
@@ -825,7 +825,7 @@ function ConfirmModal({title,body,confirmLabel,confirmVariant="danger",onConfirm
 // ── Add Mechanic Modal (username-based) ────────────────────────────────────────
 
 function AddMechanicModal({onClose,onCreated}){
-  const[form,setForm]=useState({name:"",username:"",password:"",confirm:"",color:MECHANIC_COLORS[0].value,role:form.role});const[errs,setErrs]=useState({});const[saving,setSaving]=useState(false);const[apiErr,setApiErr]=useState("");const[success,setSuccess]=useState("");
+  const[form,setForm]=useState({name:"",username:"",password:"",confirm:"",color:"#3B82F6",role:"mechanic"});const[errs,setErrs]=useState({});const[saving,setSaving]=useState(false);const[apiErr,setApiErr]=useState("");const[success,setSuccess]=useState("");
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const validate=()=>{const e={};if(!form.name.trim())e.name="Required";if(!form.username.trim())e.username="Required";else if(!isValidUsername(form.username))e.username="3–20 chars: letters, numbers, _ or -";if(!form.password)e.password="Required";else if(form.password.length<6)e.password="Min 6 characters";if(form.confirm!==form.password)e.confirm="Passwords do not match";return e;};
   const create=async()=>{

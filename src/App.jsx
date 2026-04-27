@@ -730,7 +730,7 @@ function OrderModal({mode,order,mechanics,onSave,onClose,saving}){
 
 
   const validate=()=>{const e={};if(!form.customer.trim())e.customer="Required";if(!form.model.trim())e.model="Required";if(!form.vin.trim())e.vin="Required";else if(form.vin.trim().length!==17)e.vin="Must be 17 characters";if(!form.task.trim())e.task="Required";return e;};
-  const save=()=>{const e=validate();if(Object.keys(e).length){setErrs(e);return;}onSave({...form,vin:form.vin.toUpperCase().trim(),year:parseInt(form.year),mechanic_id:form.mechanic_id||null,color:form.role==="mechanic"?form.color||null:null,date_received:form.date_received||null,date_assigned:form.date_assigned||null});};
+  const save=()=>{const e=validate();if(Object.keys(e).length){setErrs(e);return;}onSave({...form,vin:form.vin.toUpperCase().trim(),year:parseInt(form.year),mechanic_id:form.mechanic_id||null,color:form.color||null,date_received:form.date_received||null,date_assigned:form.date_assigned||null});};
   const days=daysOnLot(form.date_received);
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(3px)"}}>

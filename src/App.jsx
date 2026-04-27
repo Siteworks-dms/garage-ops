@@ -730,7 +730,7 @@ function OrderModal({mode,order,mechanics,onSave,onClose,saving}){
 
 
   const validate=()=>{const e={};if(!form.customer.trim())e.customer="Required";if(!form.model.trim())e.model="Required";if(!form.vin.trim())e.vin="Required";else if(form.vin.trim().length!==17)e.vin="Must be 17 characters";if(!form.task.trim())e.task="Required";return e;};
-  const save=()=>{const e=validate();if(Object.keys(e).length){setErrs(e);return;}onSave({...form,vin:form.vin.toUpperCase().trim(),year:parseInt(form.year),mechanic_id:form.mechanic_id||null,color:form.color||null,date_received:form.date_received||null,date_assigned:form.date_assigned||null});};
+  const save=()=>{const e=validate();if(Object.keys(e).length){setErrs(e);return;}onSave({...form,vin:form.vin.toUpperCase().trim(),year:parseInt(form.year),mechanic_id:form.mechanic_id||null,color:form.role==="mechanic"?form.color||null:null,date_received:form.date_received||null,date_assigned:form.date_assigned||null});};
   const days=daysOnLot(form.date_received);
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(3px)"}}>
@@ -825,7 +825,7 @@ function ConfirmModal({title,body,confirmLabel,confirmVariant="danger",onConfirm
 // ── Add Mechanic Modal (username-based) ────────────────────────────────────────
 
 function AddMechanicModal({onClose,onCreated}){
-  const[form,setForm]=useState({name:"",username:"",password:"",confirm:"",color:MECHANIC_COLORS[0].value});const[errs,setErrs]=useState({});const[saving,setSaving]=useState(false);const[apiErr,setApiErr]=useState("");const[success,setSuccess]=useState("");
+  const[form,setForm]=useState({name:"",username:"",password:"",confirm:"",color:MECHANIC_COLORS[0].value,role:form.role});const[errs,setErrs]=useState({});const[saving,setSaving]=useState(false);const[apiErr,setApiErr]=useState("");const[success,setSuccess]=useState("");
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const validate=()=>{const e={};if(!form.name.trim())e.name="Required";if(!form.username.trim())e.username="Required";else if(!isValidUsername(form.username))e.username="3–20 chars: letters, numbers, _ or -";if(!form.password)e.password="Required";else if(form.password.length<6)e.password="Min 6 characters";if(form.confirm!==form.password)e.confirm="Passwords do not match";return e;};
   const create=async()=>{
@@ -905,7 +905,7 @@ function AddMechanicModal({onClose,onCreated}){
         role:"mechanic",
         username:uname,
         auth_email:authEmail,
-        color:form.color||null,
+        color:form.role==="mechanic"?form.color||null:null,
         
       };
 
@@ -946,7 +946,7 @@ function AddMechanicModal({onClose,onCreated}){
 
       clearTimeout(timeout);
       console.log("[AddMechanic] Profile created successfully!");
-      setSuccess(`Done! ${form.name} can log in with @${uname}.`);
+      setSuccess(`Done! ${form.name} (${form.role}) can log in with @${uname}.`);
       setSaving(false);onCreated();
       setTimeout(()=>{setSuccess("");onClose();},3000);
     }catch(err){clearTimeout(timeout);console.error("[AddMechanic] Error:",err);setApiErr(err?.message??"Unexpected error. Please try again.");setSaving(false);}
@@ -956,10 +956,23 @@ function AddMechanicModal({onClose,onCreated}){
       <div className="slide-up" style={{background:"#1C2333",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"16px 16px 0 0",width:"100%",maxWidth:480,paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))"}}>
         <div style={{width:36,height:4,background:"rgba(255,255,255,0.15)",borderRadius:2,margin:"12px auto 0"}}/>
         <div style={{padding:"12px 20px",borderBottom:"1px solid rgba(255,255,255,0.07)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div><div style={{fontSize:16,fontWeight:700}}>ADD MECHANIC</div><div style={{fontSize:12,color:"#8B949E",marginTop:2}}>They log in with a username — no email needed</div></div>
+          <div><div style={{fontSize:16,fontWeight:700}}>ADD {form.role==="manager"?"MANAGER":"MECHANIC"}</div><div style={{fontSize:12,color:"#8B949E",marginTop:2}}>They log in with a username — no email needed</div></div>
           <button onClick={onClose} disabled={saving} style={{background:"none",border:"none",color:"#6E7681",fontSize:28,cursor:"pointer",width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
         </div>
         <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:14}}>
+          {/* Role selector */}
+          <div>
+            <FieldLabel required>Account Type</FieldLabel>
+            <div style={{display:"flex",gap:8}}>
+              {["mechanic","manager"].map(r=>(
+                <button key={r} type="button" onClick={()=>set("role",r)}
+                  style={{flex:1,padding:"10px 8px",borderRadius:8,border:`2px solid ${form.role===r?(r==="manager"?"#F59E0B":"#3B82F6"):"rgba(255,255,255,0.08)"}`,background:form.role===r?(r==="manager"?"rgba(245,158,11,0.12)":"rgba(59,130,246,0.12)"):"rgba(255,255,255,0.03)",color:form.role===r?(r==="manager"?"#F59E0B":"#3B82F6"):"#6E7681",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'Rajdhani',sans-serif",letterSpacing:"0.06em",touchAction:"manipulation",transition:"all .15s"}}>
+                  {r==="manager"?"👔 MANAGER":"🔧 MECHANIC"}
+                </button>
+              ))}
+            </div>
+            {form.role==="manager"&&<div style={{fontSize:11,color:"#F59E0B",marginTop:5}}>⚠ Manager accounts have full access to all orders, team, and settings.</div>}
+          </div>
           <div><FieldLabel required>Full Name</FieldLabel><input value={form.name} onChange={e=>set("name",e.target.value)} placeholder="e.g. James Carter"/><FieldErr msg={errs.name}/></div>
           <div>
             <FieldLabel required>Username</FieldLabel>
@@ -969,7 +982,7 @@ function AddMechanicModal({onClose,onCreated}){
           </div>
           <div><FieldLabel required>Password</FieldLabel><input type="password" value={form.password} onChange={e=>set("password",e.target.value)} placeholder="Minimum 6 characters"/><FieldErr msg={errs.password}/></div>
           <div><FieldLabel required>Confirm Password</FieldLabel><input type="password" value={form.confirm} onChange={e=>set("confirm",e.target.value)} placeholder="Re-enter password"/><FieldErr msg={errs.confirm}/></div>
-          <div>
+          {form.role==="mechanic"&&<div>
             <FieldLabel required>Mechanic Color</FieldLabel>
             <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:2}}>
               {MECHANIC_COLORS.map(c=>(
@@ -981,13 +994,13 @@ function AddMechanicModal({onClose,onCreated}){
             <div style={{fontSize:11,color:"#6E7681",marginTop:6}}>
               Selected: <span style={{color:form.color,fontWeight:700}}>{MECHANIC_COLORS.find(c=>c.value===form.color)?.label||"—"}</span>
             </div>
-          </div>
+          </div>}
           <ErrBanner msg={apiErr}/><SuccessBanner msg={success}/>
           <div style={{background:"rgba(245,158,11,0.05)",border:"1px solid rgba(245,158,11,0.15)",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#8B949E",lineHeight:1.6}}>Login: <strong style={{color:"#F59E0B"}}>@{form.username||"username"}</strong> + password. No email required.</div>
         </div>
         <div style={{padding:"0 20px 20px",display:"flex",gap:10}}>
           <Btn variant="ghost" onClick={onClose} disabled={saving} style={{flex:1}}>CANCEL</Btn>
-          <Btn variant="green" onClick={create} disabled={saving} style={{flex:2}}>{saving?<><Spinner size={14}/>CREATING…</>:"CREATE ACCOUNT"}</Btn>
+          <Btn variant="green" onClick={create} disabled={saving} style={{flex:2}}>{saving?<><Spinner size={14}/>CREATING…</>:form.role==="manager"?"CREATE MANAGER":"CREATE ACCOUNT"}</Btn>
         </div>
       </div>
     </div>
@@ -1000,7 +1013,7 @@ function MechanicsPanel({mechanics,orders,onAdd,onDelete,onColorChange,onResetPw
   const cnt=(id,s)=>orders.filter(o=>o.mechanic_id===id&&(!s||o.status===s)).length;
   return(
     <div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><div style={{fontSize:14,color:"#8B949E"}}>{mechanics.length} mechanic{mechanics.length!==1?"s":""}</div><Btn variant="green" onClick={onAdd} style={{padding:"8px 16px"}}>+ ADD</Btn></div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><div style={{fontSize:14,color:"#8B949E"}}>{mechanics.length} team member{mechanics.length!==1?"s":""}</div><Btn variant="green" onClick={onAdd} style={{padding:"8px 16px"}}>+ ADD MEMBER</Btn></div>
       {loading?<div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:48,gap:12,color:"#8B949E"}}><Spinner/>Loading…</div>:mechanics.length===0?<div style={{textAlign:"center",padding:"48px 20px",background:"#1C2333",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,color:"#6E7681"}}><div style={{fontSize:36,marginBottom:12}}>👷</div><div style={{fontSize:17,fontWeight:600,marginBottom:8}}>No Mechanics Yet</div><div style={{marginTop:16}}><Btn variant="green" onClick={onAdd}>+ ADD MECHANIC</Btn></div></div>:(
         <div className="mechanic-grid" style={{display:"grid",gap:12}}>
           {mechanics.map(m=>{const t=cnt(m.id),p=cnt(m.id,"Pending"),a=cnt(m.id,"In Progress"),d=cnt(m.id,"Completed");return(
@@ -1011,7 +1024,7 @@ function MechanicsPanel({mechanics,orders,onAdd,onDelete,onColorChange,onResetPw
                   <div style={{fontSize:15,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.full_name}</div>
                   <div style={{fontSize:13,color:m.color||"#F59E0B",fontFamily:"monospace",marginTop:1}}>@{m.username??"—"}</div>
                 </div>
-                <div style={{background:m.color?(m.color+"22"):"rgba(59,130,246,0.1)",color:m.color||"#3B82F6",border:`1px solid ${m.color?(m.color+"55"):"rgba(59,130,246,0.25)"}`,borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,flexShrink:0}}>MECH</div>
+                <div style={{background:m.color?(m.color+"22"):"rgba(59,130,246,0.1)",color:m.color||"#3B82F6",border:`1px solid ${m.color?(m.color+"55"):"rgba(59,130,246,0.25)"}`,borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,flexShrink:0}}>{m.role==="manager"?"MGR":"MECH"}</div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
                 {[{l:"Total",v:t,c:"#E6EDF3"},{l:"Pend.",v:p,c:"#F59E0B"},{l:"Active",v:a,c:"#3B82F6"},{l:"Done",v:d,c:"#10B981"}].map(s=><div key={s.l} style={{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 4px",textAlign:"center"}}><div style={{fontSize:20,fontWeight:700,color:s.c,lineHeight:1}}>{s.v}</div><div style={{fontSize:9,color:"#555d65",marginTop:3}}>{s.l.toUpperCase()}</div></div>)}
@@ -1291,7 +1304,7 @@ function ManagerDashboard({user,onLogout}){
   const[showAdd,setShowAdd]=useState(false);const[selMech,setSelMech]=useState(null);const[delMech,setDelMech]=useState(false);const[unread,setUnread]=useState(0);const[showChangePwd,setShowChangePwd]=useState(false);const[selResetMech,setSelResetMech]=useState(null);
 
   const loadOrders   =async()=>{const{data,error}=await supabase.from("work_orders").select("*").order("created_at",{ascending:false});if(error)setErr(error.message);else setOrders(data??[]);};
-  const loadMechanics=async()=>{const{data}=await supabase.from("profiles").select("*").eq("role","mechanic");setMechanics(data??[]);};
+  const loadMechanics=async()=>{const{data}=await supabase.from("profiles").select("*").neq("id",user.id).order("role");setMechanics(data??[]);};
   const loadUnread   =async()=>{const{count}=await supabase.from("messages").select("*",{count:"exact",head:true}).eq("receiver_id",user.id).eq("is_read",false);setUnread(count??0);};
 
   useEffect(()=>{setLoading(true);Promise.all([loadOrders(),loadMechanics(),loadUnread()]).finally(()=>setLoading(false));},[]);
@@ -1302,7 +1315,7 @@ function ManagerDashboard({user,onLogout}){
   const handleSave=async(form)=>{
     setSaving(true);setErr("");
     try{
-      const pl={customer:form.customer,make:form.make,model:form.model,year:form.year,vin:form.vin,task:form.task,status:form.status,mechanic_id:form.mechanic_id||null,color:form.color||null,date_received:form.date_received||null,date_assigned:form.date_assigned||null};
+      const pl={customer:form.customer,make:form.make,model:form.model,year:form.year,vin:form.vin,task:form.task,status:form.status,mechanic_id:form.mechanic_id||null,color:form.role==="mechanic"?form.color||null:null,date_received:form.date_received||null,date_assigned:form.date_assigned||null};
       if(modal==="create"){
         const{error}=await supabase.from("work_orders").insert({...pl,created_by:user.id});
         if(error){setErr(error.message);setSaving(false);return;}

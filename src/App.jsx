@@ -108,48 +108,327 @@ function SuccessBanner({msg}){return msg?<div style={{background:"rgba(16,185,12
 
 // ── TV Display ─────────────────────────────────────────────────────────────────
 
-function TVClock(){const[t,setT]=useState(new Date());useEffect(()=>{const x=setInterval(()=>setT(new Date()),1000);return()=>clearInterval(x);},[]);const p=n=>String(n).padStart(2,"0");return<div style={{textAlign:"right"}}><div style={{fontSize:42,fontWeight:700,letterSpacing:"0.06em",lineHeight:1,color:"#E6EDF3",fontFamily:"'JetBrains Mono',monospace"}}>{p(t.getHours())}:{p(t.getMinutes())}:{p(t.getSeconds())}</div><div style={{fontSize:14,color:"#6E7681",marginTop:4}}>{t.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}</div></div>;}
+const TV_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap');
+  .tv-root { font-family: 'Barlow', sans-serif; }
+  .tv-mech-name { font-family: 'Barlow Condensed', sans-serif; }
+  @keyframes tv-pulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+  @keyframes tv-scan  { 0%{transform:translateY(-100%);} 100%{transform:translateY(100vh);} }
+  @keyframes tv-slide { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+  @keyframes tv-ticker { 0%{transform:translateX(100vw);} 100%{transform:translateX(-100%);} }
+  .tv-order-row { animation: tv-slide .3s ease forwards; }
+`;
 
-function TVStatusPill({status}){const m={Pending:{color:"#F59E0B",bg:"rgba(245,158,11,0.15)"},"In Progress":{color:"#3B82F6",bg:"rgba(59,130,246,0.15)"},Completed:{color:"#10B981",bg:"rgba(16,185,129,0.15)"}}[status]??{color:"#F59E0B",bg:"rgba(245,158,11,0.15)"};return<span style={{display:"inline-flex",alignItems:"center",gap:6,background:m.bg,color:m.color,borderRadius:20,padding:"4px 12px",fontSize:13,fontWeight:700,whiteSpace:"nowrap"}}><span style={{width:7,height:7,borderRadius:"50%",background:m.color,display:"inline-block",...(status==="In Progress"?{animation:"pulse 1.5s ease-in-out infinite"}:{})}}/>{status}</span>;}
+function TVClock() {
+  const [t, setT] = useState(new Date());
+  useEffect(() => { const x = setInterval(() => setT(new Date()), 1000); return () => clearInterval(x); }, []);
+  const pad = n => String(n).padStart(2, "0");
+  return (
+    <div style={{ textAlign:"right", lineHeight:1 }}>
+      <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:52, fontWeight:800, letterSpacing:"0.04em", color:"#fff" }}>
+        {pad(t.getHours())}<span style={{ color:"rgba(255,255,255,0.4)", margin:"0 3px" }}>:</span>{pad(t.getMinutes())}<span style={{ color:"rgba(255,255,255,0.4)", margin:"0 3px" }}>:</span><span style={{ color:"rgba(255,255,255,0.5)", fontSize:36 }}>{pad(t.getSeconds())}</span>
+      </div>
+      <div style={{ fontSize:13, color:"rgba(255,255,255,0.45)", marginTop:5, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600 }}>
+        {t.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric", year:"numeric" })}
+      </div>
+    </div>
+  );
+}
 
-function TVMechanicCard({mechanic,orders}){
-  const c=getMechColor(mechanic);
-  const active=orders.filter(o=>o.status==="In Progress"),pending=orders.filter(o=>o.status==="Pending"),done=orders.filter(o=>o.status==="Completed");
-  return(
-    <div style={{background:"#161B22",border:`1px solid ${c}30`,borderTop:`3px solid ${c}`,borderRadius:14,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-      <div style={{padding:"20px 22px 16px",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",alignItems:"center",gap:14}}>
-        <div style={{width:52,height:52,borderRadius:"50%",background:c+"22",border:`2px solid ${c}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:700,color:c,flexShrink:0}}>{getInitials(mechanic.full_name)}</div>
-        <div style={{flex:1}}>
-          <div style={{fontSize:22,fontWeight:700}}>{mechanic.full_name}</div>
-          {mechanic.username&&<div style={{fontSize:13,color:"#6E7681",fontFamily:"monospace"}}>@{mechanic.username}</div>}
-          <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
-            {[{label:"Active",count:active.length,color:"#3B82F6"},{label:"Pending",count:pending.length,color:"#F59E0B"},{label:"Done",count:done.length,color:"#10B981"}].map(s=><span key={s.label} style={{fontSize:12,color:s.color,background:s.color+"15",border:`1px solid ${s.color}30`,borderRadius:10,padding:"2px 10px",fontWeight:700}}>{s.count} {s.label}</span>)}
+function TVOrderRow({ o, mechColor }) {
+  const days = daysOnLot(o.date_received);
+  const statusColor = o.status === "Pending" ? "#F59E0B" : o.status === "In Progress" ? "#38BDF8" : "#34D399";
+  const isActive = o.status === "In Progress";
+  return (
+    <div className="tv-order-row" style={{
+      display:"flex", alignItems:"stretch", gap:0,
+      background: isActive ? `linear-gradient(90deg, ${mechColor}12, transparent)` : "rgba(255,255,255,0.025)",
+      border: isActive ? `1px solid ${mechColor}35` : "1px solid rgba(255,255,255,0.06)",
+      borderLeft: `4px solid ${statusColor}`,
+      borderRadius:8, marginBottom:8, overflow:"hidden",
+    }}>
+      <div style={{ flex:1, padding:"12px 14px" }}>
+        {/* Top row */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:5 }}>
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:15, fontWeight:800, color:statusColor, letterSpacing:"0.08em" }}>{o.order_number}</span>
+          {isActive && <span style={{ width:7, height:7, borderRadius:"50%", background:"#38BDF8", display:"inline-block", animation:"tv-pulse 1.2s ease-in-out infinite", flexShrink:0 }}/>}
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:700, color:"#fff", letterSpacing:"0.02em", flex:1 }}>{o.customer}</span>
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:700, color:statusColor, background:statusColor+"18", border:`1px solid ${statusColor}40`, borderRadius:20, padding:"2px 10px", whiteSpace:"nowrap" }}>
+            {o.status === "In Progress" ? "● ACTIVE" : o.status === "Pending" ? "○ PENDING" : "✓ DONE"}
+          </span>
+        </div>
+        {/* Vehicle */}
+        <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:600, color:"rgba(255,255,255,0.7)", letterSpacing:"0.03em" }}>
+            {o.year} {o.make} {o.model}
+            {o.color && <span style={{ marginLeft:8, display:"inline-flex", alignItems:"center", gap:5, fontSize:14, color:"rgba(255,255,255,0.45)" }}><ColorDot color={o.color} size={10}/>{o.color}</span>}
+          </span>
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, color:"rgba(255,255,255,0.3)", letterSpacing:"0.08em" }}>{o.vin}</span>
+          {days !== null && (
+            <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:700, color:lotColor(days), background:lotColor(days)+"18", borderRadius:6, padding:"1px 8px" }}>
+              {days}d ON LOT{days >= 30 ? " ⚠" : ""}
+            </span>
+          )}
+        </div>
+        {/* Task */}
+        <div style={{ marginTop:6, fontSize:14, color:"rgba(255,255,255,0.5)", lineHeight:1.4, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:1, WebkitBoxOrient:"vertical", fontStyle:"italic" }}>
+          {o.task}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TVMechanicSection({ mechanic, orders, index, total }) {
+  const col = getMechColor(mechanic);
+  const active  = orders.filter(o => o.status === "In Progress");
+  const pending = orders.filter(o => o.status === "Pending");
+  const done    = orders.filter(o => o.status === "Completed");
+  const isEmpty = orders.length === 0;
+
+  return (
+    <div style={{
+      position:"relative", display:"flex", flexDirection:"column", overflow:"hidden",
+      background:"#0D1117",
+      borderRight: index < total - 1 ? "1px solid rgba(255,255,255,0.07)" : "none",
+    }}>
+      {/* Accent bar top */}
+      <div style={{ height:4, background:`linear-gradient(90deg, ${col}, ${col}88, transparent)`, flexShrink:0 }}/>
+
+      {/* Mechanic Header */}
+      <div style={{
+        padding:"20px 24px 16px", flexShrink:0,
+        background:`linear-gradient(180deg, ${col}18 0%, transparent 100%)`,
+        borderBottom:"1px solid rgba(255,255,255,0.06)",
+      }}>
+        {/* Big initials badge */}
+        <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:12 }}>
+          <div style={{
+            width:60, height:60, borderRadius:14, flexShrink:0,
+            background:`linear-gradient(135deg, ${col}33, ${col}11)`,
+            border:`2px solid ${col}66`,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontFamily:"'Barlow Condensed',sans-serif", fontSize:24, fontWeight:900, color:col,
+            letterSpacing:"0.04em",
+          }}>
+            {getInitials(mechanic.full_name)}
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div className="tv-mech-name" style={{
+              fontFamily:"'Barlow Condensed',sans-serif",
+              fontSize:34, fontWeight:900, color:"#fff",
+              letterSpacing:"0.03em", lineHeight:1,
+              textShadow:`0 0 40px ${col}66`,
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+            }}>
+              {mechanic.full_name.toUpperCase()}
+            </div>
+            {mechanic.username && (
+              <div style={{ fontSize:13, color:col, fontWeight:600, marginTop:3, opacity:.8 }}>@{mechanic.username}</div>
+            )}
+          </div>
+          {/* Active jobs badge */}
+          {active.length > 0 && (
+            <div style={{
+              background:`${col}22`, border:`2px solid ${col}`,
+              borderRadius:10, padding:"6px 12px", textAlign:"center", flexShrink:0,
+            }}>
+              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:28, fontWeight:900, color:col, lineHeight:1 }}>{active.length}</div>
+              <div style={{ fontSize:10, fontWeight:700, color:col, letterSpacing:"0.1em", opacity:.8 }}>ACTIVE</div>
+            </div>
+          )}
+        </div>
+
+        {/* Stat pills */}
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {[
+            { label:"Active",   count:active.length,  color:"#38BDF8" },
+            { label:"Pending",  count:pending.length, color:"#F59E0B" },
+            { label:"Done",     count:done.length,    color:"#34D399" },
+          ].map(s => (
+            <div key={s.label} style={{
+              display:"flex", alignItems:"center", gap:5,
+              background:s.color+"14", border:`1px solid ${s.color}30`,
+              borderRadius:20, padding:"4px 12px",
+            }}>
+              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:800, color:s.color, lineHeight:1 }}>{s.count}</span>
+              <span style={{ fontSize:11, fontWeight:700, color:s.color, letterSpacing:"0.08em", opacity:.8 }}>{s.label.toUpperCase()}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Orders list */}
+      <div style={{ flex:1, overflowY:"auto", padding:"14px 16px" }}>
+        {isEmpty ? (
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:10, opacity:.3 }}>
+            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:48, fontWeight:900, color:col }}>—</div>
+            <div style={{ fontSize:14, fontWeight:600, color:"#fff", letterSpacing:"0.1em" }}>NO ACTIVE ORDERS</div>
+          </div>
+        ) : (
+          orders.map(o => <TVOrderRow key={o.id} o={o} mechColor={col} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TVDisplay() {
+  const [mechanics,  setMechanics]  = useState([]);
+  const [orders,     setOrders]     = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [showPinPrompt, setShowPinPrompt] = useState(false);
+
+  useEffect(() => {
+    const el = document.createElement("style");
+    el.textContent = TV_CSS;
+    document.head.appendChild(el);
+    return () => document.head.removeChild(el);
+  }, []);
+
+  const load = async () => {
+    const [{ data: m }, { data: o }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("role", "mechanic").order("full_name"),
+      supabase.from("work_orders").select("*").neq("status", "Completed").order("created_at", { ascending: false }),
+    ]);
+    setMechanics(m ?? []); setOrders(o ?? []);
+    setLastUpdate(new Date()); setLoading(false);
+  };
+
+  useEffect(() => { load(); const i = setInterval(load, 60000); return () => clearInterval(i); }, []);
+  useEffect(() => {
+    const ch = supabase.channel("tv-rt")
+      .on("postgres_changes", { event:"*", schema:"public", table:"work_orders" }, load)
+      .on("postgres_changes", { event:"*", schema:"public", table:"profiles" },    load)
+      .subscribe();
+    return () => supabase.removeChannel(ch);
+  }, []);
+
+  // Navigation blocking
+  useEffect(() => {
+    window.history.pushState(null, "", window.location.href);
+    const onPop = () => { window.history.pushState(null, "", window.location.href); setShowPinPrompt(true); };
+    const onKey = e => {
+      const blocked = (e.altKey && e.key === "ArrowLeft") || (e.altKey && e.key === "ArrowRight") || e.key === "F5" || (e.ctrlKey && e.key === "r") || (e.metaKey && e.key === "r");
+      if (blocked) { e.preventDefault(); setShowPinPrompt(true); }
+    };
+    const onCtx = e => e.preventDefault();
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("contextmenu", onCtx);
+    return () => { window.removeEventListener("popstate", onPop); window.removeEventListener("keydown", onKey); window.removeEventListener("contextmenu", onCtx); };
+  }, []);
+
+  const handleUnlock = () => { setShowPinPrompt(false); window.location.href = window.location.origin; };
+
+  const getOrdersForMech = id => orders.filter(o => o.mechanic_id === id);
+  const totalActive  = orders.filter(o => o.status === "In Progress").length;
+  const totalPending = orders.filter(o => o.status === "Pending").length;
+  const longOnLot    = orders.filter(o => daysOnLot(o.date_received) >= 30).length;
+
+  if (loading) return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#0D1117", flexDirection:"column", gap:20 }}>
+      <div style={{ width:48, height:48, border:"3px solid rgba(245,158,11,0.2)", borderTop:"3px solid #F59E0B", borderRadius:"50%", animation:"spin .7s linear infinite" }}/>
+      <div style={{ fontFamily:"'Barlow Condensed',sans-serif", color:"rgba(255,255,255,0.4)", fontSize:22, letterSpacing:"0.15em" }}>LOADING DISPLAY…</div>
+    </div>
+  );
+
+  // Always show exactly 4 panels — pad with empty slots
+  const SLOTS = 4;
+  const slots = [...mechanics.slice(0, SLOTS)];
+  while (slots.length < SLOTS) slots.push(null);
+
+  return (
+    <div className="tv-root" style={{ width:"100vw", height:"100vh", background:"#0D1117", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      {showPinPrompt && <TVPinPrompt onUnlock={handleUnlock} />}
+
+      {/* ── Header bar ── */}
+      <div style={{
+        height:72, flexShrink:0,
+        background:"linear-gradient(90deg, #0D1117, #161B22, #0D1117)",
+        borderBottom:"1px solid rgba(255,255,255,0.08)",
+        display:"flex", alignItems:"center", padding:"0 28px", gap:20,
+      }}>
+        {/* Brand */}
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <div style={{ width:40, height:40, borderRadius:10, background:"rgba(245,158,11,0.12)", border:"1.5px solid rgba(245,158,11,0.35)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <svg width="22" height="22" viewBox="0 0 34 34" fill="none"><polygon points="17,3 31,10 31,24 17,31 3,24 3,10" stroke="#F59E0B" strokeWidth="1.5" strokeLinejoin="round" fill="none"/><circle cx="17" cy="17" r="4.5" stroke="#F59E0B" strokeWidth="1.5" fill="rgba(245,158,11,0.1)"/><line x1="17" y1="12.5" x2="17" y2="8" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="17" y1="21.5" x2="17" y2="26" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="12.5" y1="17" x2="8" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/><line x1="21.5" y1="17" x2="26" y2="17" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          </div>
+          <div>
+            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:900, letterSpacing:"0.1em", lineHeight:1 }}>
+              GARAGE<span style={{ color:"#F59E0B" }}>OPS</span>
+            </div>
+            <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)", letterSpacing:"0.18em", marginTop:1 }}>WORKSHOP FLOOR DISPLAY</div>
           </div>
         </div>
-        {active.length>0&&<div style={{background:"rgba(59,130,246,0.1)",border:"1px solid rgba(59,130,246,0.3)",borderRadius:8,padding:"6px 12px",textAlign:"center"}}><div style={{fontSize:11,color:"#6E7681"}}>ON JOB</div><div style={{fontSize:22,fontWeight:700,color:"#3B82F6",lineHeight:1.2}}>{active.length}</div></div>}
-      </div>
-      <div style={{flex:1,overflowY:"auto",padding:"12px 0"}}>
-        {orders.length===0?<div style={{padding:"24px 22px",textAlign:"center",color:"#484f58",fontSize:15}}>No orders assigned</div>:orders.map(o=>{
-          const days=daysOnLot(o.date_received);
-          return(<div key={o.id} style={{padding:"12px 22px",borderBottom:"1px solid rgba(255,255,255,0.04)",display:"flex",alignItems:"center",gap:14,background:o.status==="In Progress"?"rgba(59,130,246,0.04)":"transparent"}}>
-            <div style={{width:4,alignSelf:"stretch",borderRadius:2,background:o.status==="Pending"?"#F59E0B":o.status==="In Progress"?"#3B82F6":"#10B981",flexShrink:0}}/>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
-                <span style={{fontFamily:"monospace",fontSize:13,color:"#F59E0B",fontWeight:600}}>{o.order_number}</span>
-                <span style={{fontSize:15,fontWeight:700}}>{o.customer}</span>
-                {o.color&&<span style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:12,color:"#8B949E"}}><ColorDot color={o.color} size={10}/> {o.color}</span>}
-              </div>
-              <div style={{fontSize:14,color:"#8B949E",marginBottom:4}}>{o.year} {o.make} {o.model}</div>
-              <div style={{display:"flex",gap:14,marginBottom:4,flexWrap:"wrap",alignItems:"center"}}>
-                {o.date_received&&<span style={{fontSize:11,color:"#6E7681"}}>📥 {fmtDate(o.date_received)}</span>}
-                {o.date_assigned&&<span style={{fontSize:11,color:"#6E7681"}}>🔧 {fmtDate(o.date_assigned)}</span>}
-                {days!==null&&<span style={{fontSize:12,fontWeight:700,color:lotColor(days)}}>{days}d on lot {days>=30?"⚠":""}</span>}
-              </div>
-              <div style={{fontSize:13,color:"#C9D1D9",lineHeight:1.45,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{o.task}</div>
+
+        {/* Live indicator */}
+        <div style={{ display:"flex", alignItems:"center", gap:7, background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:20, padding:"5px 12px" }}>
+          <span style={{ width:8, height:8, borderRadius:"50%", background:"#34D399", display:"inline-block", animation:"tv-pulse 1.5s ease-in-out infinite" }}/>
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:800, color:"#34D399", letterSpacing:"0.12em" }}>LIVE</span>
+        </div>
+
+        {/* Stats */}
+        <div style={{ display:"flex", gap:10, flex:1, justifyContent:"center" }}>
+          {[
+            { label:"MECHANICS",   value:mechanics.length, color:"#fff" },
+            { label:"IN PROGRESS", value:totalActive,      color:"#38BDF8" },
+            { label:"PENDING",     value:totalPending,     color:"#F59E0B" },
+            { label:"30+ DAYS",    value:longOnLot,        color:longOnLot > 0 ? "#F87171" : "rgba(255,255,255,0.2)" },
+          ].map(s => (
+            <div key={s.label} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:8, padding:"6px 16px", textAlign:"center", minWidth:88 }}>
+              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:26, fontWeight:800, color:s.color, lineHeight:1 }}>{s.value}</div>
+              <div style={{ fontSize:9, color:"rgba(255,255,255,0.35)", letterSpacing:"0.12em", marginTop:2, fontWeight:700 }}>{s.label}</div>
             </div>
-            <div style={{flexShrink:0}}><TVStatusPill status={o.status}/></div>
-          </div>);
-        })}
+          ))}
+        </div>
+
+        {/* Clock */}
+        <TVClock />
+      </div>
+
+      {/* ── 4-panel grid ── */}
+      <div style={{ flex:1, display:"grid", gridTemplateColumns:"repeat(4,1fr)", overflow:"hidden" }}>
+        {slots.map((mech, i) => mech ? (
+          <TVMechanicSection
+            key={mech.id}
+            mechanic={mech}
+            orders={getOrdersForMech(mech.id)}
+            index={i}
+            total={SLOTS}
+          />
+        ) : (
+          // Empty slot
+          <div key={i} style={{
+            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+            borderRight: i < SLOTS - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+            opacity:.15,
+          }}>
+            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:60, fontWeight:900, color:"rgba(255,255,255,0.2)" }}>—</div>
+            <div style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.3)", letterSpacing:"0.15em" }}>UNASSIGNED</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Ticker ── */}
+      <div style={{ height:34, flexShrink:0, background:"#0A0E14", borderTop:"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center", overflow:"hidden" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, paddingLeft:16, paddingRight:16, borderRight:"1px solid rgba(255,255,255,0.07)", height:"100%", flexShrink:0 }}>
+          <span style={{ width:6, height:6, borderRadius:"50%", background:"#34D399", animation:"tv-pulse 1.5s ease-in-out infinite" }}/>
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:800, color:"#34D399", letterSpacing:"0.15em" }}>LIVE</span>
+        </div>
+        <div style={{ flex:1, overflow:"hidden", position:"relative", height:"100%", display:"flex", alignItems:"center" }}>
+          <div style={{ whiteSpace:"nowrap", animation:"tv-ticker 50s linear infinite", fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:600, color:"rgba(255,255,255,0.4)", letterSpacing:"0.06em" }}>
+            {orders.length === 0 ? "  NO ACTIVE WORK ORDERS AT THIS TIME  ·  " :
+              orders.map(o => {
+                const d = daysOnLot(o.date_received);
+                return `  ${o.order_number}  ·  ${o.customer.toUpperCase()}  ·  ${o.year}${o.color ? " " + o.color.toUpperCase() : ""} ${o.make.toUpperCase()} ${o.model.toUpperCase()}  ·  ${o.status.toUpperCase()}${d !== null ? "  ·  " + d + "D ON LOT" : ""}    `;
+              }).join(" ⬥ ")}
+          </div>
+        </div>
+        <div style={{ paddingRight:14, paddingLeft:14, fontSize:10, color:"rgba(255,255,255,0.2)", borderLeft:"1px solid rgba(255,255,255,0.07)", height:"100%", display:"flex", alignItems:"center", flexShrink:0, fontWeight:600, letterSpacing:"0.08em" }}>
+          UPDATED {lastUpdate.toLocaleTimeString()}
+        </div>
       </div>
     </div>
   );

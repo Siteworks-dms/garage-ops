@@ -136,49 +136,83 @@ function TVClock() {
 }
 
 function TVOrderRow({ o, mechColor }) {
-  const days = daysOnLot(o.date_received);
+  const days        = daysOnLot(o.date_received);
   const statusColor = o.status === "Pending" ? "#F59E0B" : o.status === "In Progress" ? "#38BDF8" : "#34D399";
-  const isActive = o.status === "In Progress";
+  const isActive    = o.status === "In Progress";
+  const dc          = lotColor(days);
+
+  // Build the detail chips — each is an icon + value
+  const chips = [
+    o.vin        && { icon:"#", value:o.vin,                                  color:"rgba(255,255,255,0.28)", mono:true },
+    o.year       && { icon:"🚗", value:`${o.year} ${o.make} ${o.model}${o.color?" · "+o.color:""}`, color:"rgba(255,255,255,0.65)" },
+    o.date_assigned && { icon:"🔧", value:fmtDate(o.date_assigned),           color:"rgba(255,255,255,0.45)" },
+    days !== null && { icon:"📅", value:`${days}d on lot${days>=30?" ⚠":""}`, color:dc, bold:days>=14 },
+  ].filter(Boolean);
+
   return (
     <div className="tv-order-row" style={{
-      display:"flex", alignItems:"center", gap:0,
-      background: isActive ? `linear-gradient(90deg, ${mechColor}10, rgba(255,255,255,0.02))` : "rgba(255,255,255,0.02)",
-      border: isActive ? `1px solid ${mechColor}30` : "1px solid rgba(255,255,255,0.05)",
+      display:"flex", alignItems:"center",
+      background: isActive ? `linear-gradient(90deg,${mechColor}12,rgba(255,255,255,0.015))` : "rgba(255,255,255,0.018)",
+      border:     isActive ? `1px solid ${mechColor}28` : "1px solid rgba(255,255,255,0.05)",
       borderLeft: `4px solid ${statusColor}`,
-      borderRadius:8, marginBottom:7, overflow:"hidden",
-      padding:"10px 14px", minHeight:58,
+      borderRadius:8, marginBottom:7, padding:"9px 12px", gap:10, minHeight:64,
     }}>
-      {/* ORDER # + pulse */}
-      <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:7, width:90 }}>
-        {isActive && <span style={{ width:7, height:7, borderRadius:"50%", background:"#38BDF8", flexShrink:0, animation:"tv-pulse 1.2s ease-in-out infinite" }}/>}
-        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:800, color:statusColor, letterSpacing:"0.06em" }}>{o.order_number}</span>
-      </div>
 
-      {/* Customer + vehicle — flex grow */}
-      <div style={{ flex:1, minWidth:0, paddingRight:12 }}>
-        {/* Row 1: Customer name + vehicle */}
-        <div style={{ display:"flex", alignItems:"baseline", gap:10, flexWrap:"nowrap", overflow:"hidden" }}>
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:24, fontWeight:800, color:"#fff", letterSpacing:"0.02em", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"50%" }}>{o.customer}</span>
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:600, color:"rgba(255,255,255,0.6)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-            {o.year} {o.make} {o.model}{o.color ? ` · ${o.color}` : ""}
+      {/* ── Left: order number + pulse ── */}
+      <div style={{ flexShrink:0, width:76, display:"flex", flexDirection:"column", alignItems:"flex-start", gap:3 }}>
+        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:900, color:statusColor, letterSpacing:"0.08em" }}>{o.order_number}</span>
+        {isActive && (
+          <span style={{ display:"flex", alignItems:"center", gap:4, fontSize:9, fontWeight:700, color:"#38BDF8", letterSpacing:"0.1em" }}>
+            <span style={{ width:6, height:6, borderRadius:"50%", background:"#38BDF8", display:"inline-block", animation:"tv-pulse 1.2s ease-in-out infinite" }}/>
+            LIVE
           </span>
+        )}
+      </div>
+
+      {/* ── Centre: customer + all detail chips in one line ── */}
+      <div style={{ flex:1, minWidth:0 }}>
+        {/* Customer name — big and bold */}
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color:"#fff", letterSpacing:"0.02em", lineHeight:1, marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          {o.customer}
         </div>
-        {/* Row 2: Task + days on lot */}
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginTop:3 }}>
-          <span style={{ fontSize:13, color:"rgba(255,255,255,0.4)", fontStyle:"italic", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{o.task}</span>
-          {days !== null && (
-            <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:700, color:lotColor(days), background:lotColor(days)+"18", borderRadius:5, padding:"1px 8px", flexShrink:0, whiteSpace:"nowrap" }}>
-              {days}d{days >= 30 ? " ⚠" : ""}
+
+        {/* Single detail line — all chips separated by · */}
+        <div style={{ display:"flex", alignItems:"center", gap:0, flexWrap:"nowrap", overflow:"hidden" }}>
+          {chips.map((chip, ci) => (
+            <span key={ci} style={{ display:"inline-flex", alignItems:"center", gap:4, flexShrink: ci < 2 ? 1 : 0, minWidth:0, overflow:"hidden" }}>
+              {ci > 0 && <span style={{ color:"rgba(255,255,255,0.15)", fontSize:11, margin:"0 6px", flexShrink:0 }}>·</span>}
+              <span style={{ fontSize:10, opacity:.6, flexShrink:0 }}>{chip.icon}</span>
+              <span style={{
+                fontFamily: chip.mono ? "'JetBrains Mono',monospace" : "'Barlow Condensed',sans-serif",
+                fontSize: chip.mono ? 11 : 13,
+                fontWeight: chip.bold ? 800 : 600,
+                color: chip.color,
+                letterSpacing: chip.mono ? "0.06em" : "0.02em",
+                whiteSpace:"nowrap",
+                overflow: ci < 2 ? "hidden" : "visible",
+                textOverflow: ci < 2 ? "ellipsis" : "clip",
+                maxWidth: ci === 1 ? 220 : "none",
+              }}>{chip.value}</span>
             </span>
-          )}
+          ))}
+        </div>
+
+        {/* Task — italic subtitle */}
+        <div style={{ marginTop:4, fontSize:12, color:"rgba(255,255,255,0.35)", fontStyle:"italic", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          {o.task}
         </div>
       </div>
 
-      {/* Status badge */}
-      <div style={{ flexShrink:0 }}>
-        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:800, color:statusColor, background:statusColor+"15", border:`1px solid ${statusColor}40`, borderRadius:6, padding:"4px 10px", letterSpacing:"0.08em", whiteSpace:"nowrap" }}>
+      {/* ── Right: status badge ── */}
+      <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:900, color:statusColor, background:statusColor+"15", border:`1px solid ${statusColor}40`, borderRadius:6, padding:"4px 10px", letterSpacing:"0.1em", whiteSpace:"nowrap" }}>
           {o.status === "In Progress" ? "● ACTIVE" : o.status === "Pending" ? "○ PENDING" : "✓ DONE"}
         </span>
+        {days !== null && (
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:900, color:dc, lineHeight:1 }}>
+            {days}<span style={{ fontSize:9, fontWeight:700, marginLeft:2, opacity:.8 }}>DAYS</span>
+          </span>
+        )}
       </div>
     </div>
   );

@@ -152,14 +152,14 @@ function TVOrderRow({ o, mechColor }) {
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:5 }}>
           <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:15, fontWeight:800, color:statusColor, letterSpacing:"0.08em" }}>{o.order_number}</span>
           {isActive && <span style={{ width:7, height:7, borderRadius:"50%", background:"#38BDF8", display:"inline-block", animation:"tv-pulse 1.2s ease-in-out infinite", flexShrink:0 }}/>}
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:700, color:"#fff", letterSpacing:"0.02em", flex:1 }}>{o.customer}</span>
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:26, fontWeight:700, color:"#fff", letterSpacing:"0.02em", flex:1 }}>{o.customer}</span>
           <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:700, color:statusColor, background:statusColor+"18", border:`1px solid ${statusColor}40`, borderRadius:20, padding:"2px 10px", whiteSpace:"nowrap" }}>
             {o.status === "In Progress" ? "● ACTIVE" : o.status === "Pending" ? "○ PENDING" : "✓ DONE"}
           </span>
         </div>
         {/* Vehicle */}
         <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:600, color:"rgba(255,255,255,0.7)", letterSpacing:"0.03em" }}>
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:20, fontWeight:600, color:"rgba(255,255,255,0.7)", letterSpacing:"0.03em" }}>
             {o.year} {o.make} {o.model}
             {o.color && <span style={{ marginLeft:8, display:"inline-flex", alignItems:"center", gap:5, fontSize:14, color:"rgba(255,255,255,0.45)" }}><ColorDot color={o.color} size={10}/>{o.color}</span>}
           </span>
@@ -171,7 +171,7 @@ function TVOrderRow({ o, mechColor }) {
           )}
         </div>
         {/* Task */}
-        <div style={{ marginTop:6, fontSize:14, color:"rgba(255,255,255,0.5)", lineHeight:1.4, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:1, WebkitBoxOrient:"vertical", fontStyle:"italic" }}>
+        <div style={{ marginTop:6, fontSize:14, color:"rgba(255,255,255,0.5)", lineHeight:1.4, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", fontStyle:"italic" }}>
           {o.task}
         </div>
       </div>
@@ -179,7 +179,7 @@ function TVOrderRow({ o, mechColor }) {
   );
 }
 
-function TVMechanicSection({ mechanic, orders, index, total }) {
+function TVMechanicSection({ mechanic, orders, index, total, borderRight, borderBottom }) {
   const col = getMechColor(mechanic);
   const active  = orders.filter(o => o.status === "In Progress");
   const pending = orders.filter(o => o.status === "Pending");
@@ -190,7 +190,8 @@ function TVMechanicSection({ mechanic, orders, index, total }) {
     <div style={{
       position:"relative", display:"flex", flexDirection:"column", overflow:"hidden",
       background:"#0D1117",
-      borderRight: index < total - 1 ? "1px solid rgba(255,255,255,0.07)" : "none",
+      borderRight:  borderRight  || "none",
+      borderBottom: borderBottom || "none",
     }}>
       {/* Accent bar top */}
       <div style={{ height:4, background:`linear-gradient(90deg, ${col}, ${col}88, transparent)`, flexShrink:0 }}/>
@@ -216,7 +217,7 @@ function TVMechanicSection({ mechanic, orders, index, total }) {
           <div style={{ flex:1, minWidth:0 }}>
             <div className="tv-mech-name" style={{
               fontFamily:"'Barlow Condensed',sans-serif",
-              fontSize:34, fontWeight:900, color:"#fff",
+              fontSize:40, fontWeight:900, color:"#fff",
               letterSpacing:"0.03em", lineHeight:1,
               textShadow:`0 0 40px ${col}66`,
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
@@ -388,27 +389,33 @@ function TVDisplay() {
         <TVClock />
       </div>
 
-      {/* ── 4-panel grid ── */}
-      <div style={{ flex:1, display:"grid", gridTemplateColumns:"repeat(4,1fr)", overflow:"hidden" }}>
-        {slots.map((mech, i) => mech ? (
-          <TVMechanicSection
-            key={mech.id}
-            mechanic={mech}
-            orders={getOrdersForMech(mech.id)}
-            index={i}
-            total={SLOTS}
-          />
-        ) : (
-          // Empty slot
-          <div key={i} style={{
-            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-            borderRight: i < SLOTS - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
-            opacity:.15,
-          }}>
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:60, fontWeight:900, color:"rgba(255,255,255,0.2)" }}>—</div>
-            <div style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.3)", letterSpacing:"0.15em" }}>UNASSIGNED</div>
-          </div>
-        ))}
+      {/* ── 2x2 grid ── */}
+      <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 1fr", gridTemplateRows:"1fr 1fr", overflow:"hidden" }}>
+        {slots.map((mech, i) => {
+          const isRightCol = i % 2 === 1;
+          const isTopRow   = i < 2;
+          return mech ? (
+            <TVMechanicSection
+              key={mech.id}
+              mechanic={mech}
+              orders={getOrdersForMech(mech.id)}
+              index={i}
+              total={SLOTS}
+              borderRight={isRightCol ? "none" : "1px solid rgba(255,255,255,0.07)"}
+              borderBottom={isTopRow ? "1px solid rgba(255,255,255,0.07)" : "none"}
+            />
+          ) : (
+            <div key={i} style={{
+              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+              borderRight:  isRightCol ? "none" : "1px solid rgba(255,255,255,0.04)",
+              borderBottom: isTopRow   ? "1px solid rgba(255,255,255,0.04)" : "none",
+              opacity:.12,
+            }}>
+              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:60, fontWeight:900, color:"rgba(255,255,255,0.2)" }}>—</div>
+              <div style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.3)", letterSpacing:"0.15em" }}>UNASSIGNED</div>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Ticker ── */}

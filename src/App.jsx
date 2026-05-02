@@ -139,7 +139,6 @@ function TVOrderRow({ o, mechColor }) {
   const days        = daysOnLot(o.date_received);
   const statusColor = o.status === "Pending" ? "#F59E0B" : o.status === "In Progress" ? "#38BDF8" : "#34D399";
   const isActive    = o.status === "In Progress";
-  const dc          = lotColor(days);
 
   return (
     <div className="tv-order-row" style={{
@@ -150,17 +149,23 @@ function TVOrderRow({ o, mechColor }) {
       borderRadius:10, marginBottom:7, overflow:"hidden", height:54,
     }}>
 
-      {/* ── Left: order # + live + days on lot ── */}
-      <div style={{ flexShrink:0, width:96, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2, height:"100%", background:"rgba(0,0,0,0.22)", borderRight:"1px solid rgba(255,255,255,0.05)", padding:"0 6px" }}>
+      {/* ── Left: order # + status + date ── */}
+      <div style={{ flexShrink:0, width:108, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2, height:"100%", background:"rgba(0,0,0,0.22)", borderRight:"1px solid rgba(255,255,255,0.05)", padding:"0 6px" }}>
         <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:900, color:statusColor, letterSpacing:"0.1em" }}>{o.order_number}</span>
-        {isActive
-          ? <span style={{ display:"flex", alignItems:"center", gap:3, fontSize:9, fontWeight:800, color:"#38BDF8", letterSpacing:"0.12em" }}><span style={{ width:5, height:5, borderRadius:"50%", background:"#38BDF8", animation:"tv-pulse 1.2s ease-in-out infinite" }}/>LIVE</span>
-          : <span style={{ fontSize:9, fontWeight:700, color:"rgba(255,255,255,0.2)", letterSpacing:"0.1em" }}>{o.status==="Pending"?"WAIT":"DONE"}</span>
-        }
-
+        {/* Status label — "ACTIVE" instead of "LIVE" */}
+        <span style={{ display:"flex", alignItems:"center", gap:3, fontSize:9, fontWeight:800, color:statusColor, letterSpacing:"0.12em" }}>
+          {isActive && <span style={{ width:5, height:5, borderRadius:"50%", background:"#38BDF8", animation:"tv-pulse 1.2s ease-in-out infinite" }}/>}
+          {o.status === "In Progress" ? "ACTIVE" : o.status === "Pending" ? "PENDING" : "DONE"}
+        </span>
+        {/* Date assigned */}
+        {o.date_assigned && (
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:10, fontWeight:600, color:"rgba(255,255,255,0.4)", letterSpacing:"0.02em", marginTop:1 }}>
+            🔧 {fmtDate(o.date_assigned)}
+          </span>
+        )}
       </div>
 
-      {/* ── Task — biggest, most space ── */}
+      {/* ── Task ── */}
       <div style={{ flex:"1 1 35%", minWidth:0, padding:"0 14px", overflow:"hidden" }}>
         <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:19, fontWeight:800, color:"rgba(255,255,255,0.95)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", letterSpacing:"0.01em" }}>
           {o.task}
@@ -183,23 +188,6 @@ function TVOrderRow({ o, mechColor }) {
       <div style={{ flex:"0 0 16%", display:"flex", alignItems:"center", gap:5, padding:"0 12px", minWidth:0, overflow:"hidden" }}>
         <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.25)", letterSpacing:"0.1em", flexShrink:0 }}>VIN</span>
         <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:"rgba(255,255,255,0.4)", letterSpacing:"0.04em", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{o.vin}</span>
-      </div>
-
-      <div style={{ width:1, height:30, background:"rgba(255,255,255,0.07)", flexShrink:0 }}/>
-
-      {/* ── Date assigned ── */}
-      {o.date_assigned && (
-        <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:5, padding:"0 12px" }}>
-          <span style={{ fontSize:11 }}>🔧</span>
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:600, color:"rgba(255,255,255,0.45)", whiteSpace:"nowrap" }}>{fmtDate(o.date_assigned)}</span>
-        </div>
-      )}
-
-      {/* ── Status ── */}
-      <div style={{ flexShrink:0, height:"100%", display:"flex", alignItems:"center", justifyContent:"center", padding:"0 14px", background:"rgba(0,0,0,0.15)", borderLeft:"1px solid rgba(255,255,255,0.05)", marginLeft:"auto" }}>
-        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:900, color:statusColor, background:statusColor+"18", border:`1px solid ${statusColor}45`, borderRadius:6, padding:"4px 11px", letterSpacing:"0.12em", whiteSpace:"nowrap" }}>
-          {o.status==="In Progress"?"● ACTIVE":o.status==="Pending"?"○ PENDING":"✓ DONE"}
-        </span>
       </div>
 
     </div>

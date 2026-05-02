@@ -1690,17 +1690,27 @@ export default function App(){
 
   // Load profile AND garage name together — used on both initial load and session restore
   const loadUserWithGarage=async(authUser)=>{
-    const{data:p}=await supabase.from("profiles").select("*").eq("id",authUser.id).single();
-    if(!p)return null;
-    return{...authUser,...p};
+    try{
+      // 3-second timeout — never hang on profile load
+      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),3000));
+      const query=supabase.from("profiles").select("*").eq("id",authUser.id).single();
+      const{data:p}=await Promise.race([query,timeout]);
+      if(!p)return null;
+      return{...authUser,...p};
+    }catch(e){
+      console.warn("loadUserWithGarage failed:",e.message);
+      return null;
+    }
   };
   useEffect(()=>{const el=document.createElement("style");el.textContent=GLOBAL_CSS;document.head.appendChild(el);return()=>document.head.removeChild(el);},[]);
-  const isTV=new URLSearchParams(window.location.search).get("tv")==="1";const tvGarageId=new URLSearchParams(window.location.search).get("garage");
+  const isTV=new URLSearchParams(window.location.search).get("tv")==="1";
   if(isTV)return<TVDisplay/>;
   useEffect(()=>{
     supabase.auth.getSession().then(async({data:{session}})=>{
-      if(session?.user){const u=await loadUserWithGarage(session.user);if(u)setUser(u);}
-      setChecking(false);
+      try{
+        if(session?.user){const u=await loadUserWithGarage(session.user);if(u)setUser(u);}
+      }catch(e){console.warn("Session restore failed:",e);}
+      finally{setChecking(false);} // always unblock loading
     });
     const{data:{subscription}}=supabase.auth.onAuthStateChange(async(event,session)=>{
       if(event==="SIGNED_OUT"){setUser(null);return;}

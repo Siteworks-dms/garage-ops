@@ -157,11 +157,7 @@ function TVOrderRow({ o, mechColor }) {
           ? <span style={{ display:"flex", alignItems:"center", gap:3, fontSize:9, fontWeight:800, color:"#38BDF8", letterSpacing:"0.12em" }}><span style={{ width:5, height:5, borderRadius:"50%", background:"#38BDF8", animation:"tv-pulse 1.2s ease-in-out infinite" }}/>LIVE</span>
           : <span style={{ fontSize:9, fontWeight:700, color:"rgba(255,255,255,0.2)", letterSpacing:"0.1em" }}>{o.status==="Pending"?"WAIT":"DONE"}</span>
         }
-        {days !== null && (
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:900, color:dc, background:dc+"20", border:`1px solid ${dc}40`, borderRadius:4, padding:"1px 6px", letterSpacing:"0.04em", marginTop:1 }}>
-            {days}d{days>=30?" ⚠":""}
-          </span>
-        )}
+
       </div>
 
       {/* ── Task — biggest, most space ── */}

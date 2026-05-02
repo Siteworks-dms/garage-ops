@@ -240,7 +240,7 @@ function TVMechanicSection({ mechanic, orders, index, total, borderRight, border
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{
             fontFamily:"'Barlow Condensed',sans-serif",
-            fontSize:36, fontWeight:900, color:"#fff",
+            fontSize:36, fontWeight:900, color:col,
             letterSpacing:"0.03em", lineHeight:1,
             textShadow:`0 0 30px ${col}55`,
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",

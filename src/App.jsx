@@ -136,7 +136,6 @@ function TVClock() {
 }
 
 function TVOrderRow({ o, mechColor }) {
-  const days        = daysOnLot(o.date_received);
   const statusColor = o.status === "Pending" ? "#F59E0B" : o.status === "In Progress" ? "#38BDF8" : "#34D399";
   const isActive    = o.status === "In Progress";
 
@@ -149,20 +148,13 @@ function TVOrderRow({ o, mechColor }) {
       borderRadius:10, marginBottom:7, overflow:"hidden", height:54,
     }}>
 
-      {/* ── Left: order # + status + date ── */}
-      <div style={{ flexShrink:0, width:108, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2, height:"100%", background:"rgba(0,0,0,0.22)", borderRight:"1px solid rgba(255,255,255,0.05)", padding:"0 6px" }}>
+      {/* ── Left: order # + status only ── */}
+      <div style={{ flexShrink:0, width:96, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, height:"100%", background:"rgba(0,0,0,0.22)", borderRight:"1px solid rgba(255,255,255,0.05)", padding:"0 6px" }}>
         <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:900, color:statusColor, letterSpacing:"0.1em" }}>{o.order_number}</span>
-        {/* Status label — "ACTIVE" instead of "LIVE" */}
         <span style={{ display:"flex", alignItems:"center", gap:3, fontSize:9, fontWeight:800, color:statusColor, letterSpacing:"0.12em" }}>
           {isActive && <span style={{ width:5, height:5, borderRadius:"50%", background:"#38BDF8", animation:"tv-pulse 1.2s ease-in-out infinite" }}/>}
           {o.status === "In Progress" ? "ACTIVE" : o.status === "Pending" ? "PENDING" : "DONE"}
         </span>
-        {/* Date assigned */}
-        {o.date_assigned && (
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:10, fontWeight:600, color:"rgba(255,255,255,0.4)", letterSpacing:"0.02em", marginTop:1 }}>
-            🔧 {fmtDate(o.date_assigned)}
-          </span>
-        )}
       </div>
 
       {/* ── Task ── */}
@@ -261,13 +253,18 @@ function TVMechanicSection({ mechanic, orders, index, total, borderRight, border
               <span style={{ fontSize:9, fontWeight:700, color:s.color, letterSpacing:"0.1em", opacity:.75, marginTop:1 }}>{s.label}</span>
             </div>
           ))}
-          {/* Max days on lot badge */}
-          {(() => { const maxD = orders.reduce((mx,o) => { const d=daysOnLot(o.date_received); return d!==null&&d>mx?d:mx; }, -1); if(maxD<0) return null; const c=lotColor(maxD); return (
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", background:c+"14", border:`1px solid ${c}35`, borderRadius:8, padding:"5px 10px", minWidth:50 }}>
-              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:900, color:c, lineHeight:1 }}>{maxD}</span>
-              <span style={{ fontSize:9, fontWeight:700, color:c, letterSpacing:"0.08em", opacity:.75, marginTop:1 }}>DAYS{maxD>=30?" ⚠":""}</span>
-            </div>
-          ); })()}
+          {/* Max days on lot + earliest assignment date */}
+          {(() => {
+            const maxD = orders.reduce((mx,o) => { const d=daysOnLot(o.date_received); return d!==null&&d>mx?d:mx; }, -1);
+            const earliest = orders.filter(o=>o.date_assigned).sort((a,b)=>a.date_assigned>b.date_assigned?1:-1)[0];
+            const c = maxD >= 0 ? lotColor(maxD) : "#6E7681";
+            return (
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", background:c+"14", border:`1px solid ${c}35`, borderRadius:8, padding:"5px 10px", minWidth:60 }}>
+                {maxD >= 0 && <><span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:900, color:c, lineHeight:1 }}>{maxD}</span><span style={{ fontSize:9, fontWeight:700, color:c, letterSpacing:"0.08em", opacity:.75, marginTop:1 }}>DAYS{maxD>=30?" ⚠":""}</span></>}
+                {earliest && <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.45)", marginTop:maxD>=0?3:0, letterSpacing:"0.04em", whiteSpace:"nowrap" }}>🔧 {fmtDate(earliest.date_assigned)}</span>}
+              </div>
+            );
+          })()}
         </div>
       </div>
 

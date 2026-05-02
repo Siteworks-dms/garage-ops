@@ -453,7 +453,7 @@ function TVDisplay() {
             {orders.length === 0 ? "  NO ACTIVE WORK ORDERS AT THIS TIME  ·  " :
               orders.map(o => {
                 const d = daysOnLot(o.date_received);
-                return `  ${o.order_number}  ·  ${o.customer.toUpperCase()}  ·  ${o.year}${o.color ? " " + o.color.toUpperCase() : ""} ${o.make.toUpperCase()} ${o.model.toUpperCase()}  ·  ${o.status.toUpperCase()}${d !== null ? "  ·  " + d + "D ON LOT" : ""}    `;
+                return `  ${o.order_number}  ·  ${o.year}${o.color ? " " + o.color.toUpperCase() : ""} ${o.make.toUpperCase()} ${o.model.toUpperCase()}  ·  ${o.status.toUpperCase()}${d !== null ? "  ·  " + d + "D ON LOT" : ""}    `;
               }).join(" ⬥ ")}
           </div>
         </div>

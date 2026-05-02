@@ -143,57 +143,62 @@ function TVOrderRow({ o, mechColor }) {
 
   return (
     <div className="tv-order-row" style={{
-      display:"flex", alignItems:"stretch",
+      display:"flex", alignItems:"center",
       background: isActive ? `linear-gradient(90deg,${mechColor}14,rgba(255,255,255,0.02))` : "rgba(255,255,255,0.025)",
       border:     isActive ? `1px solid ${mechColor}35` : "1px solid rgba(255,255,255,0.06)",
       borderLeft: `5px solid ${statusColor}`,
-      borderRadius:10, marginBottom:8, overflow:"hidden", minHeight:82,
+      borderRadius:10, marginBottom:7, overflow:"hidden", height:54, padding:"0",
     }}>
 
-      {/* ── Left column: order # + date + days on lot ── */}
-      <div style={{ flexShrink:0, width:112, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, background:"rgba(0,0,0,0.22)", borderRight:"1px solid rgba(255,255,255,0.05)", padding:"8px 8px" }}>
-        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:16, fontWeight:900, color:statusColor, letterSpacing:"0.1em", textAlign:"center" }}>{o.order_number}</span>
+      {/* ── Order # + live ── */}
+      <div style={{ flexShrink:0, width:88, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2, height:"100%", background:"rgba(0,0,0,0.22)", borderRight:"1px solid rgba(255,255,255,0.05)", padding:"0 6px" }}>
+        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:900, color:statusColor, letterSpacing:"0.1em" }}>{o.order_number}</span>
         {isActive
-          ? <span style={{ display:"flex", alignItems:"center", gap:4, fontSize:10, fontWeight:800, color:"#38BDF8", letterSpacing:"0.12em" }}><span style={{ width:6, height:6, borderRadius:"50%", background:"#38BDF8", animation:"tv-pulse 1.2s ease-in-out infinite", flexShrink:0 }}/>LIVE</span>
-          : <span style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.2)", letterSpacing:"0.1em" }}>{o.status==="Pending"?"WAIT":"DONE"}</span>
+          ? <span style={{ display:"flex", alignItems:"center", gap:3, fontSize:9, fontWeight:800, color:"#38BDF8", letterSpacing:"0.12em" }}><span style={{ width:5, height:5, borderRadius:"50%", background:"#38BDF8", animation:"tv-pulse 1.2s ease-in-out infinite" }}/>LIVE</span>
+          : <span style={{ fontSize:9, fontWeight:700, color:"rgba(255,255,255,0.2)", letterSpacing:"0.1em" }}>{o.status==="Pending"?"WAIT":"DONE"}</span>
         }
-        <div style={{ width:"70%", height:1, background:"rgba(255,255,255,0.07)", margin:"2px 0" }}/>
-        {o.date_assigned && (
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.45)", textAlign:"center" }}>🔧 {fmtDate(o.date_assigned)}</span>
-        )}
-        {days !== null && (
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:900, color:dc, textAlign:"center" }}>📅 {days}d{days>=30?" ⚠":""}</span>
-        )}
       </div>
 
-      {/* ── Centre: vehicle + task ── */}
-      <div style={{ flex:1, minWidth:0, padding:"10px 14px", display:"flex", flexDirection:"column", justifyContent:"center", gap:7 }}>
-
-        {/* Vehicle row */}
-        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"nowrap", overflow:"hidden" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"3px 10px", flexShrink:1, minWidth:0, overflow:"hidden" }}>
-            <span style={{ fontSize:13, flexShrink:0 }}>🚗</span>
-            <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:17, fontWeight:700, color:"rgba(255,255,255,0.85)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-              {o.year} {o.make} {o.model}{o.color?` · ${o.color}`:""}
-            </span>
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:6, padding:"3px 10px", flexShrink:1, minWidth:0, overflow:"hidden" }}>
-            <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.3)", letterSpacing:"0.1em", flexShrink:0 }}>VIN</span>
-            <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:"rgba(255,255,255,0.5)", letterSpacing:"0.06em", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{o.vin}</span>
-          </div>
-        </div>
-
-        {/* Task — big, prominent, 2 lines */}
-        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:700, color:"rgba(255,255,255,0.9)", lineHeight:1.3, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", letterSpacing:"0.01em" }}>
+      {/* ── Task — most important, gets the most space ── */}
+      <div style={{ flex:"0 0 28%", minWidth:0, padding:"0 14px", overflow:"hidden" }}>
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:20, fontWeight:800, color:"rgba(255,255,255,0.95)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", letterSpacing:"0.01em" }}>
           {o.task}
         </div>
-
       </div>
 
-      {/* ── Right: status badge ── */}
-      <div style={{ flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", padding:"8px 14px", background:"rgba(0,0,0,0.15)" }}>
-        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:900, color:statusColor, background:statusColor+"18", border:`1px solid ${statusColor}45`, borderRadius:6, padding:"4px 12px", letterSpacing:"0.12em", whiteSpace:"nowrap" }}>
-          {o.status === "In Progress" ? "● ACTIVE" : o.status === "Pending" ? "○ PENDING" : "✓ DONE"}
+      {/* ── Divider ── */}
+      <div style={{ width:1, height:30, background:"rgba(255,255,255,0.07)", flexShrink:0 }}/>
+
+      {/* ── Vehicle ── */}
+      <div style={{ flex:"0 0 22%", display:"flex", alignItems:"center", gap:6, padding:"0 12px", minWidth:0, overflow:"hidden" }}>
+        <span style={{ fontSize:13, flexShrink:0 }}>🚗</span>
+        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:16, fontWeight:700, color:"rgba(255,255,255,0.8)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+          {o.year} {o.make} {o.model}{o.color?` · ${o.color}`:""}
+        </span>
+      </div>
+
+      {/* ── Divider ── */}
+      <div style={{ width:1, height:30, background:"rgba(255,255,255,0.07)", flexShrink:0 }}/>
+
+      {/* ── VIN ── */}
+      <div style={{ flex:"0 0 18%", display:"flex", alignItems:"center", gap:6, padding:"0 12px", minWidth:0, overflow:"hidden" }}>
+        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.28)", letterSpacing:"0.1em", flexShrink:0 }}>VIN</span>
+        <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:"rgba(255,255,255,0.45)", letterSpacing:"0.05em", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{o.vin}</span>
+      </div>
+
+      {/* ── Divider ── */}
+      <div style={{ width:1, height:30, background:"rgba(255,255,255,0.07)", flexShrink:0 }}/>
+
+      {/* ── Date + Days ── */}
+      <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"0 12px", justifyContent:"flex-end" }}>
+        {o.date_assigned&&<span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:600, color:"rgba(255,255,255,0.45)", whiteSpace:"nowrap" }}>🔧 {fmtDate(o.date_assigned)}</span>}
+        {days!==null&&<span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:900, color:dc, background:dc+"18", border:`1px solid ${dc}35`, borderRadius:6, padding:"2px 10px", whiteSpace:"nowrap" }}>📅 {days}d{days>=30?" ⚠":""}</span>}
+      </div>
+
+      {/* ── Status badge ── */}
+      <div style={{ flexShrink:0, height:"100%", display:"flex", alignItems:"center", justifyContent:"center", padding:"0 14px", background:"rgba(0,0,0,0.15)", borderLeft:"1px solid rgba(255,255,255,0.05)" }}>
+        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:900, color:statusColor, background:statusColor+"18", border:`1px solid ${statusColor}45`, borderRadius:6, padding:"4px 12px", letterSpacing:"0.12em", whiteSpace:"nowrap" }}>
+          {o.status==="In Progress"?"● ACTIVE":o.status==="Pending"?"○ PENDING":"✓ DONE"}
         </span>
       </div>
 

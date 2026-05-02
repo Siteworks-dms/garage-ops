@@ -162,12 +162,7 @@ function TVOrderRow({ o, mechColor }) {
       {/* ── Centre: all info ── */}
       <div style={{ flex:1, minWidth:0, padding:"10px 14px", display:"flex", flexDirection:"column", justifyContent:"center", gap:5 }}>
 
-        {/* Row 1: Customer name */}
-        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:26, fontWeight:900, color:"#fff", letterSpacing:"0.02em", lineHeight:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-          {o.customer}
-        </div>
-
-        {/* Row 2: Vehicle chips — all in one line */}
+        {/* Vehicle chips — all in one line */}
         <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"nowrap", overflow:"hidden" }}>
 
           {/* Year / Make / Model / Color */}
@@ -220,12 +215,7 @@ function TVOrderRow({ o, mechColor }) {
         <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:900, color:statusColor, background:statusColor+"18", border:`1px solid ${statusColor}45`, borderRadius:6, padding:"4px 12px", letterSpacing:"0.12em", whiteSpace:"nowrap" }}>
           {o.status === "In Progress" ? "● ACTIVE" : o.status === "Pending" ? "○ PENDING" : "✓ DONE"}
         </span>
-        {days !== null && (
-          <div style={{ textAlign:"center" }}>
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:900, color:dc, lineHeight:1 }}>{days}</div>
-            <div style={{ fontSize:9, fontWeight:700, color:dc, opacity:.7, letterSpacing:"0.12em" }}>DAYS</div>
-          </div>
-        )}
+
       </div>
 
     </div>

@@ -1031,7 +1031,7 @@ function AddMechanicModal({onClose,onCreated}){
     try{
       const uname=form.username.toLowerCase().trim();
       const authEmail=usernameToEmail(uname);
-      console.log("[AddMechanic] Starting create for:",uname,"garageId:",garageId);
+      console.log("[AddMechanic] Starting create for:",uname);
 
       // Check username not already taken
       const{data:ex}=await supabase.from("profiles").select("id").eq("username",uname);

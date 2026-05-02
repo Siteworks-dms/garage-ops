@@ -1227,12 +1227,21 @@ function EditMemberModal({ member, onClose, onSaved }) {
     setSaving(true); setErr(""); setSuccess("");
     const { data: existing } = await supabase.from("profiles").select("id").eq("username", username.toLowerCase().trim()).neq("id", member.id);
     if (existing && existing.length > 0) { setErr("That username is already taken."); setSaving(false); return; }
-    const { error } = await supabase.from("profiles").update({
-      full_name: name.trim(), initials: getInitials(name),
-      username: username.toLowerCase().trim(), role,
-      color: role === "mechanic" ? color : null,
-    }).eq("id", member.id);
-    if (error) { setErr(error.message); setSaving(false); return; }
+    const supabaseUrl2=import.meta.env.VITE_SUPABASE_URL;
+    const serviceKey2=import.meta.env.VITE_SUPABASE_SERVICE_KEY;
+    let saveError=null;
+    if(serviceKey2){
+      const res=await fetch(`${supabaseUrl2}/rest/v1/profiles?id=eq.${member.id}`,{
+        method:"PATCH",
+        headers:{"Content-Type":"application/json","apikey":serviceKey2,"Authorization":`Bearer ${serviceKey2}`,"Prefer":"return=minimal"},
+        body:JSON.stringify({full_name:name.trim(),initials:getInitials(name),username:username.toLowerCase().trim(),role,color:role==="mechanic"?color:null}),
+      });
+      if(!res.ok){const d=await res.json().catch(()=>({}));saveError=d.message||d.details||"Update failed.";}
+    } else {
+      const{error}=await supabase.from("profiles").update({full_name:name.trim(),initials:getInitials(name),username:username.toLowerCase().trim(),role,color:role==="mechanic"?color:null}).eq("id",member.id);
+      saveError=error?.message||null;
+    }
+    if(saveError){setErr(saveError);setSaving(false);return;}
     setSuccess("Changes saved!"); setSaving(false); onSaved();
     setTimeout(() => onClose(), 1200);
   };
@@ -1319,7 +1328,17 @@ function MechanicsPanel({mechanics,orders,onAdd,onDelete,onColorChange,onResetPw
                   {MECHANIC_COLORS.map(c=>(
                     <button key={c.value} type="button" title={c.label}
                       onClick={async()=>{
-                        await supabase.from("profiles").update({color:c.value}).eq("id",m.id);
+                        const supabaseUrl=import.meta.env.VITE_SUPABASE_URL;
+                        const serviceKey=import.meta.env.VITE_SUPABASE_SERVICE_KEY;
+                        if(serviceKey){
+                          await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${m.id}`,{
+                            method:"PATCH",
+                            headers:{"Content-Type":"application/json","apikey":serviceKey,"Authorization":`Bearer ${serviceKey}`,"Prefer":"return=minimal"},
+                            body:JSON.stringify({color:c.value}),
+                          });
+                        } else {
+                          await supabase.from("profiles").update({color:c.value}).eq("id",m.id);
+                        }
                         onColorChange(m.id,c.value);
                       }}
                       style={{width:24,height:24,borderRadius:"50%",background:c.value,border:(m.color||getMechColor(m))===c.value?`2px solid #fff`:`1.5px solid ${c.value}55`,cursor:"pointer",flexShrink:0,transition:"transform .12s",transform:(m.color||getMechColor(m))===c.value?"scale(1.25)":"scale(1)",boxShadow:(m.color||getMechColor(m))===c.value?`0 0 0 2px #1C2333, 0 0 0 3px ${c.value}`:"none"}}

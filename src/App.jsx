@@ -1208,9 +1208,91 @@ function AddMechanicModal({onClose,onCreated}){
   );
 }
 
+
+// ── Edit Member Modal ─────────────────────────────────────────────────────────
+
+function EditMemberModal({ member, onClose, onSaved }) {
+  const [name,    setName]    = useState(member.full_name || "");
+  const [username,setUsername]= useState(member.username  || "");
+  const [role,    setRole]    = useState(member.role       || "mechanic");
+  const [color,   setColor]   = useState(member.color      || "#3B82F6");
+  const [saving,  setSaving]  = useState(false);
+  const [err,     setErr]     = useState("");
+  const [success, setSuccess] = useState("");
+
+  const save = async () => {
+    if (!name.trim())     { setErr("Full name is required."); return; }
+    if (!username.trim()) { setErr("Username is required."); return; }
+    if (!isValidUsername(username)) { setErr("3-20 chars: letters, numbers, _ or -"); return; }
+    setSaving(true); setErr(""); setSuccess("");
+    const { data: existing } = await supabase.from("profiles").select("id").eq("username", username.toLowerCase().trim()).neq("id", member.id);
+    if (existing && existing.length > 0) { setErr("That username is already taken."); setSaving(false); return; }
+    const { error } = await supabase.from("profiles").update({
+      full_name: name.trim(), initials: getInitials(name),
+      username: username.toLowerCase().trim(), role,
+      color: role === "mechanic" ? color : null,
+    }).eq("id", member.id);
+    if (error) { setErr(error.message); setSaving(false); return; }
+    setSuccess("Changes saved!"); setSaving(false); onSaved();
+    setTimeout(() => onClose(), 1200);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:200, backdropFilter:"blur(3px)" }}>
+      <div className="slide-up" style={{ background:"#1C2333", border:"1px solid rgba(255,255,255,0.1)", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:520, paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))" }}>
+        <div style={{ width:36, height:4, background:"rgba(255,255,255,0.15)", borderRadius:2, margin:"12px auto 0" }}/>
+        <div style={{ padding:"14px 20px 12px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div>
+            <div style={{ fontSize:16, fontWeight:700 }}>EDIT MEMBER</div>
+            <div style={{ fontSize:12, color:"#8B949E", marginTop:2 }}>Editing <span style={{ color:"#F59E0B" }}>{member.full_name}</span></div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#6E7681", fontSize:28, cursor:"pointer", width:44, height:44, display:"flex", alignItems:"center", justifyContent:"center" }}>x</button>
+        </div>
+        <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", gap:14 }}>
+          <div>
+            <FieldLabel required>Account Type</FieldLabel>
+            <div style={{ display:"flex", gap:8 }}>
+              <button type="button" onClick={()=>setRole("mechanic")} style={{ flex:1, padding:"10px 8px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Rajdhani',sans-serif", touchAction:"manipulation", border: role==="mechanic"?"2px solid #3B82F6":"2px solid rgba(255,255,255,0.08)", background: role==="mechanic"?"rgba(59,130,246,0.12)":"rgba(255,255,255,0.03)", color: role==="mechanic"?"#3B82F6":"#6E7681"}}>🔧 MECHANIC</button>
+              <button type="button" onClick={()=>setRole("manager")} style={{ flex:1, padding:"10px 8px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Rajdhani',sans-serif", touchAction:"manipulation", border: role==="manager"?"2px solid #F59E0B":"2px solid rgba(255,255,255,0.08)", background: role==="manager"?"rgba(245,158,11,0.12)":"rgba(255,255,255,0.03)", color: role==="manager"?"#F59E0B":"#6E7681"}}>👔 MANAGER</button>
+            </div>
+          </div>
+          <div><FieldLabel required>Full Name</FieldLabel><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. James Carter"/></div>
+          <div>
+            <FieldLabel required>Username</FieldLabel>
+            <div style={{ position:"relative" }}>
+              <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#555d65", fontSize:15, fontWeight:600, pointerEvents:"none" }}>@</span>
+              <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g,""))} autoCapitalize="none" autoCorrect="off" style={{ paddingLeft:28 }}/>
+            </div>
+            <div style={{ fontSize:11, color:"#555d65", marginTop:4 }}>3-20 chars: letters, numbers, _ or -</div>
+          </div>
+          {role==="mechanic"&&(
+            <div>
+              <FieldLabel>Mechanic Color</FieldLabel>
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop:2 }}>
+                {MECHANIC_COLORS.map(c=>(
+                  <button key={c.value} type="button" title={c.label} onClick={()=>setColor(c.value)}
+                    style={{ width:34, height:34, borderRadius:"50%", background:c.value, border:color===c.value?"3px solid #fff":`2px solid ${c.value}55`, cursor:"pointer", flexShrink:0, transition:"transform .12s", transform:color===c.value?"scale(1.2)":"scale(1)", boxShadow:color===c.value?`0 0 0 2px #1C2333, 0 0 0 4px ${c.value}`:"none" }}
+                  />
+                ))}
+              </div>
+              <div style={{ fontSize:11, color:"#6E7681", marginTop:6 }}>Selected: <span style={{ color, fontWeight:700 }}>{MECHANIC_COLORS.find(c=>c.value===color)?.label||"—"}</span></div>
+            </div>
+          )}
+          {err&&<div style={{ background:"rgba(239,68,68,0.09)", border:"1px solid rgba(239,68,68,0.28)", color:"#F87171", borderRadius:8, padding:"10px 14px", fontSize:13 }}>{err}</div>}
+          {success&&<div style={{ background:"rgba(16,185,129,0.09)", border:"1px solid rgba(16,185,129,0.28)", color:"#34D399", borderRadius:8, padding:"10px 14px", fontSize:13 }}>{success}</div>}
+        </div>
+        <div style={{ padding:"0 20px 20px", display:"flex", gap:10 }}>
+          <Btn variant="ghost" onClick={onClose} disabled={saving} style={{ flex:1 }}>CANCEL</Btn>
+          <Btn variant="primary" onClick={save} disabled={saving} style={{ flex:2 }}>{saving?<><Spinner size={14}/>SAVING...</>:"SAVE CHANGES"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Mechanics Panel ────────────────────────────────────────────────────────────
 
-function MechanicsPanel({mechanics,orders,onAdd,onDelete,onColorChange,onResetPwd,loading}){
+function MechanicsPanel({mechanics,orders,onAdd,onDelete,onColorChange,onResetPwd,onEdit,loading}){
   const cnt=(id,s)=>orders.filter(o=>o.mechanic_id===id&&(!s||o.status===s)).length;
   return(
     <div>
@@ -1245,9 +1327,10 @@ function MechanicsPanel({mechanics,orders,onAdd,onDelete,onColorChange,onResetPw
                   ))}
                 </div>
               </div>
-              <div style={{display:"flex",gap:8}}>
-                <Btn variant="blue" onClick={()=>onResetPwd(m)} style={{flex:1,padding:"8px",fontSize:12}}>🔑 RESET PWD</Btn>
-                <Btn variant="red" onClick={()=>onDelete(m)} style={{flex:1,padding:"8px",fontSize:12}}>REMOVE</Btn>
+              <div style={{display:"flex",gap:6}}>
+                <Btn variant="ghost" onClick={()=>onEdit(m)} style={{flex:1,padding:"8px",fontSize:12}}>✏ EDIT</Btn>
+                <Btn variant="blue"  onClick={()=>onResetPwd(m)} style={{flex:1,padding:"8px",fontSize:12}}>🔑 PWD</Btn>
+                <Btn variant="red"   onClick={()=>onDelete(m)} style={{flex:1,padding:"8px",fontSize:12}}>✕</Btn>
               </div>
             </div>
           );})}
@@ -1502,7 +1585,7 @@ function ManagerDashboard({user,onLogout}){
   const[orders,setOrders]=useState([]);const[mechanics,setMechanics]=useState([]);const[loading,setLoading]=useState(true);
   const[tab,setTab]=useState("orders");const[modal,setModal]=useState(null);const[sel,setSel]=useState(null);
   const[saving,setSaving]=useState(false);const[deleting,setDeleting]=useState(false);const[err,setErr]=useState("");
-  const[showAdd,setShowAdd]=useState(false);const[selMech,setSelMech]=useState(null);const[delMech,setDelMech]=useState(false);const[unread,setUnread]=useState(0);const[showChangePwd,setShowChangePwd]=useState(false);const[selResetMech,setSelResetMech]=useState(null);
+  const[showAdd,setShowAdd]=useState(false);const[selMech,setSelMech]=useState(null);const[delMech,setDelMech]=useState(false);const[unread,setUnread]=useState(0);const[showChangePwd,setShowChangePwd]=useState(false);const[selResetMech,setSelResetMech]=useState(null);const[selEditMech,setSelEditMech]=useState(null);
 
   const loadOrders   =async()=>{const{data,error}=await supabase.from("work_orders").select("*").order("created_at",{ascending:false});if(error)setErr(error.message);else setOrders(data??[]);};
   const loadMechanics=async()=>{const{data}=await supabase.from("profiles").select("*").neq("id",user.id).order("role");setMechanics(data??[]);};
@@ -1565,7 +1648,7 @@ function ManagerDashboard({user,onLogout}){
         
         <ErrBanner msg={err}/>
         {tab==="orders"&&<><StatsCards orders={orders}/><WorkOrderTable orders={orders} mechanics={mechanics} loading={loading} onCreate={()=>{setSaving(false);setErr("");setModal("create");}} onEdit={o=>{setSaving(false);setErr("");setSel(o);setModal("edit");}} onDelete={o=>{setSel(o);setModal("delete");}}/></>}
-        {tab==="team"&&<><MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={()=>setShowAdd(true)} onDelete={m=>setSelMech(m)} onColorChange={(id,color)=>setMechanics(prev=>prev.map(m=>m.id===id?{...m,color}:m))} onResetPwd={m=>setSelResetMech(m)}/><TVPinSettings userId={user.id}/></>}
+        {tab==="team"&&<><MechanicsPanel mechanics={mechanics} orders={orders} loading={loading} onAdd={()=>setShowAdd(true)} onDelete={m=>setSelMech(m)} onColorChange={(id,color)=>setMechanics(prev=>prev.map(m=>m.id===id?{...m,color}:m))} onResetPwd={m=>setSelResetMech(m)} onEdit={m=>setSelEditMech(m)}/><TVPinSettings userId={user.id}/></>}
         {tab==="messages"&&<MessagingPanel currentUser={user} mechanics={mechanics}/>}
       </div>
       {/* Bottom tab bar */}
@@ -1584,6 +1667,7 @@ function ManagerDashboard({user,onLogout}){
       {modal==="delete"&&<ConfirmModal title="Delete Work Order" body={<>Delete <strong style={{color:"#F59E0B"}}>{sel?.order_number}</strong> for <strong style={{color:"#E6EDF3"}}>{sel?.customer}</strong>? This cannot be undone.</>} confirmLabel="DELETE ORDER" onConfirm={handleDelOrder} onClose={closeOrder} loading={deleting}/>}
       {showAdd&&<AddMechanicModal onClose={()=>setShowAdd(false)} onCreated={()=>loadMechanics()}/>}
       {selResetMech&&<ResetMechanicPasswordModal mechanic={selResetMech} onClose={()=>setSelResetMech(null)}/>}
+      {selEditMech&&<EditMemberModal member={selEditMech} onClose={()=>setSelEditMech(null)} onSaved={()=>{loadMechanics();setSelEditMech(null);}}/>}
       {selMech&&<ConfirmModal title="Remove Mechanic" body={<>Remove <strong style={{color:"#E6EDF3"}}>{selMech.full_name}</strong> (@{selMech.username})? {orders.filter(o=>o.mechanic_id===selMech.id).length>0&&<span style={{color:"#D97706"}}>⚠ Their orders will be unassigned. </span>}Cannot be undone.</>} confirmLabel="REMOVE MECHANIC" onConfirm={handleDelMech} onClose={()=>setSelMech(null)} loading={delMech}/>}
     </div>
   );

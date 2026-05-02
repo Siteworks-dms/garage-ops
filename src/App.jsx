@@ -141,39 +141,44 @@ function TVOrderRow({ o, mechColor }) {
   const isActive = o.status === "In Progress";
   return (
     <div className="tv-order-row" style={{
-      display:"flex", alignItems:"stretch", gap:0,
-      background: isActive ? `linear-gradient(90deg, ${mechColor}12, transparent)` : "rgba(255,255,255,0.025)",
-      border: isActive ? `1px solid ${mechColor}35` : "1px solid rgba(255,255,255,0.06)",
+      display:"flex", alignItems:"center", gap:0,
+      background: isActive ? `linear-gradient(90deg, ${mechColor}10, rgba(255,255,255,0.02))` : "rgba(255,255,255,0.02)",
+      border: isActive ? `1px solid ${mechColor}30` : "1px solid rgba(255,255,255,0.05)",
       borderLeft: `4px solid ${statusColor}`,
-      borderRadius:8, marginBottom:8, overflow:"hidden",
+      borderRadius:8, marginBottom:7, overflow:"hidden",
+      padding:"10px 14px", minHeight:58,
     }}>
-      <div style={{ flex:1, padding:"12px 14px" }}>
-        {/* Top row */}
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:5 }}>
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:15, fontWeight:800, color:statusColor, letterSpacing:"0.08em" }}>{o.order_number}</span>
-          {isActive && <span style={{ width:7, height:7, borderRadius:"50%", background:"#38BDF8", display:"inline-block", animation:"tv-pulse 1.2s ease-in-out infinite", flexShrink:0 }}/>}
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:26, fontWeight:700, color:"#fff", letterSpacing:"0.02em", flex:1 }}>{o.customer}</span>
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:700, color:statusColor, background:statusColor+"18", border:`1px solid ${statusColor}40`, borderRadius:20, padding:"2px 10px", whiteSpace:"nowrap" }}>
-            {o.status === "In Progress" ? "● ACTIVE" : o.status === "Pending" ? "○ PENDING" : "✓ DONE"}
+      {/* ORDER # + pulse */}
+      <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:7, width:90 }}>
+        {isActive && <span style={{ width:7, height:7, borderRadius:"50%", background:"#38BDF8", flexShrink:0, animation:"tv-pulse 1.2s ease-in-out infinite" }}/>}
+        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:800, color:statusColor, letterSpacing:"0.06em" }}>{o.order_number}</span>
+      </div>
+
+      {/* Customer + vehicle — flex grow */}
+      <div style={{ flex:1, minWidth:0, paddingRight:12 }}>
+        {/* Row 1: Customer name + vehicle */}
+        <div style={{ display:"flex", alignItems:"baseline", gap:10, flexWrap:"nowrap", overflow:"hidden" }}>
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:24, fontWeight:800, color:"#fff", letterSpacing:"0.02em", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"50%" }}>{o.customer}</span>
+          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:600, color:"rgba(255,255,255,0.6)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+            {o.year} {o.make} {o.model}{o.color ? ` · ${o.color}` : ""}
           </span>
         </div>
-        {/* Vehicle */}
-        <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:20, fontWeight:600, color:"rgba(255,255,255,0.7)", letterSpacing:"0.03em" }}>
-            {o.year} {o.make} {o.model}
-            {o.color && <span style={{ marginLeft:8, display:"inline-flex", alignItems:"center", gap:5, fontSize:14, color:"rgba(255,255,255,0.45)" }}><ColorDot color={o.color} size={10}/>{o.color}</span>}
-          </span>
-          <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, color:"rgba(255,255,255,0.3)", letterSpacing:"0.08em" }}>{o.vin}</span>
+        {/* Row 2: Task + days on lot */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginTop:3 }}>
+          <span style={{ fontSize:13, color:"rgba(255,255,255,0.4)", fontStyle:"italic", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{o.task}</span>
           {days !== null && (
-            <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:700, color:lotColor(days), background:lotColor(days)+"18", borderRadius:6, padding:"1px 8px" }}>
-              {days}d ON LOT{days >= 30 ? " ⚠" : ""}
+            <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:700, color:lotColor(days), background:lotColor(days)+"18", borderRadius:5, padding:"1px 8px", flexShrink:0, whiteSpace:"nowrap" }}>
+              {days}d{days >= 30 ? " ⚠" : ""}
             </span>
           )}
         </div>
-        {/* Task */}
-        <div style={{ marginTop:6, fontSize:14, color:"rgba(255,255,255,0.5)", lineHeight:1.4, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", fontStyle:"italic" }}>
-          {o.task}
-        </div>
+      </div>
+
+      {/* Status badge */}
+      <div style={{ flexShrink:0 }}>
+        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:800, color:statusColor, background:statusColor+"15", border:`1px solid ${statusColor}40`, borderRadius:6, padding:"4px 10px", letterSpacing:"0.08em", whiteSpace:"nowrap" }}>
+          {o.status === "In Progress" ? "● ACTIVE" : o.status === "Pending" ? "○ PENDING" : "✓ DONE"}
+        </span>
       </div>
     </div>
   );
@@ -196,64 +201,54 @@ function TVMechanicSection({ mechanic, orders, index, total, borderRight, border
       {/* Accent bar top */}
       <div style={{ height:4, background:`linear-gradient(90deg, ${col}, ${col}88, transparent)`, flexShrink:0 }}/>
 
-      {/* Mechanic Header */}
+      {/* Mechanic Header — compact single row */}
       <div style={{
-        padding:"20px 24px 16px", flexShrink:0,
-        background:`linear-gradient(180deg, ${col}18 0%, transparent 100%)`,
+        padding:"12px 18px", flexShrink:0,
+        background:`linear-gradient(180deg, ${col}15 0%, transparent 100%)`,
         borderBottom:"1px solid rgba(255,255,255,0.06)",
+        display:"flex", alignItems:"center", gap:14,
       }}>
-        {/* Big initials badge */}
-        <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:12 }}>
+        {/* Initials badge */}
+        <div style={{
+          width:50, height:50, borderRadius:12, flexShrink:0,
+          background:`linear-gradient(135deg, ${col}33, ${col}11)`,
+          border:`2px solid ${col}55`,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontFamily:"'Barlow Condensed',sans-serif", fontSize:20, fontWeight:900, color:col,
+        }}>
+          {getInitials(mechanic.full_name)}
+        </div>
+
+        {/* Name + username */}
+        <div style={{ flex:1, minWidth:0 }}>
           <div style={{
-            width:60, height:60, borderRadius:14, flexShrink:0,
-            background:`linear-gradient(135deg, ${col}33, ${col}11)`,
-            border:`2px solid ${col}66`,
-            display:"flex", alignItems:"center", justifyContent:"center",
-            fontFamily:"'Barlow Condensed',sans-serif", fontSize:24, fontWeight:900, color:col,
-            letterSpacing:"0.04em",
+            fontFamily:"'Barlow Condensed',sans-serif",
+            fontSize:36, fontWeight:900, color:"#fff",
+            letterSpacing:"0.03em", lineHeight:1,
+            textShadow:`0 0 30px ${col}55`,
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
           }}>
-            {getInitials(mechanic.full_name)}
+            {mechanic.full_name.toUpperCase()}
           </div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div className="tv-mech-name" style={{
-              fontFamily:"'Barlow Condensed',sans-serif",
-              fontSize:40, fontWeight:900, color:"#fff",
-              letterSpacing:"0.03em", lineHeight:1,
-              textShadow:`0 0 40px ${col}66`,
-              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-            }}>
-              {mechanic.full_name.toUpperCase()}
-            </div>
-            {mechanic.username && (
-              <div style={{ fontSize:13, color:col, fontWeight:600, marginTop:3, opacity:.8 }}>@{mechanic.username}</div>
-            )}
-          </div>
-          {/* Active jobs badge */}
-          {active.length > 0 && (
-            <div style={{
-              background:`${col}22`, border:`2px solid ${col}`,
-              borderRadius:10, padding:"6px 12px", textAlign:"center", flexShrink:0,
-            }}>
-              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:28, fontWeight:900, color:col, lineHeight:1 }}>{active.length}</div>
-              <div style={{ fontSize:10, fontWeight:700, color:col, letterSpacing:"0.1em", opacity:.8 }}>ACTIVE</div>
-            </div>
+          {mechanic.username && (
+            <div style={{ fontSize:12, color:col, fontWeight:600, marginTop:2, opacity:.75 }}>@{mechanic.username}</div>
           )}
         </div>
 
-        {/* Stat pills */}
-        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+        {/* Inline stat pills — all on one line */}
+        <div style={{ display:"flex", gap:6, flexShrink:0 }}>
           {[
-            { label:"Active",   count:active.length,  color:"#38BDF8" },
-            { label:"Pending",  count:pending.length, color:"#F59E0B" },
-            { label:"Done",     count:done.length,    color:"#34D399" },
+            { label:"ACT", count:active.length,  color:"#38BDF8" },
+            { label:"PND", count:pending.length, color:"#F59E0B" },
+            { label:"DNE", count:done.length,    color:"#34D399" },
           ].map(s => (
             <div key={s.label} style={{
-              display:"flex", alignItems:"center", gap:5,
-              background:s.color+"14", border:`1px solid ${s.color}30`,
-              borderRadius:20, padding:"4px 12px",
+              display:"flex", flexDirection:"column", alignItems:"center",
+              background:s.color+"14", border:`1px solid ${s.color}35`,
+              borderRadius:8, padding:"5px 10px", minWidth:44,
             }}>
-              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:800, color:s.color, lineHeight:1 }}>{s.count}</span>
-              <span style={{ fontSize:11, fontWeight:700, color:s.color, letterSpacing:"0.08em", opacity:.8 }}>{s.label.toUpperCase()}</span>
+              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:900, color:s.color, lineHeight:1 }}>{s.count}</span>
+              <span style={{ fontSize:9, fontWeight:700, color:s.color, letterSpacing:"0.1em", opacity:.75, marginTop:1 }}>{s.label}</span>
             </div>
           ))}
         </div>
